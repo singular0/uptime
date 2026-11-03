@@ -111,7 +111,7 @@ describe('pollers', function() {
     it('should call back once with an error when the request times out', async function() {
       const { err, time, calls } = await poll(HttpPoller, server.url + '/slow', 100);
       err.should.eql({ name: 'TimeOutError', message: 'Request Timeout' });
-      time.should.be.aboveOrEqual(100);
+      time.should.be.aboveOrEqual(90); // the timer uses Date.now(), and setTimeout() can fire 1ms early by that clock
       await wait(50); // the aborted request must not call back again
       calls().should.eql(1);
     });
