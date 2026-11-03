@@ -4,6 +4,7 @@
   --uptime-red: #b94a48;
   --uptime-blue: #3a87ad;
   --date-navigation-height: 6rem;
+  --graph-y-axis-width: 50px;
 }
 
 a {
@@ -237,6 +238,10 @@ table.ping .error {
 .adjustedOnDateNavigation {
   margin-left: 2rem;
   margin-right: 2rem;
+}
+/* a graph's y axis sits to the left of the period buttons, so that its plot area lines up with them */
+.graph.adjustedOnDateNavigation {
+  margin-left: calc(2rem - var(--graph-y-axis-width));
 }
 #dateNavigation .timeline {
   height: 22px;

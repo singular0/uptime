@@ -18,7 +18,15 @@ function drawStatGraph(container, interval, options) {
   Chart.getChart(canvas)?.destroy();
 
   const points = options.points;
-  const yScale = { beginAtZero: true };
+  // The CSS lines the plot area up with the period buttons. For that, the y axis has the width
+  // the CSS expects, and the plot area has no padding (layout.autoPadding) on its right.
+  const yAxisWidth = parseFloat(getComputedStyle(container).getPropertyValue('--graph-y-axis-width'));
+  const yScale = {
+    beginAtZero: true,
+    afterFit(axis) {
+      axis.width = yAxisWidth;
+    },
+  };
   if (options.percent && points.length) {
     const min = Math.min(...points.map(point => point.y));
     yScale.min = Math.max(0, Math.floor(min < 10 ? min : min < 90 ? min - 10 : min - 1));
@@ -45,6 +53,7 @@ function drawStatGraph(container, interval, options) {
     options: {
       animation: false,
       maintainAspectRatio: false,
+      layout: { autoPadding: false },
       interaction: { mode: 'nearest', axis: 'x', intersect: false },
       scales: {
         x: {
