@@ -545,20 +545,6 @@ License
 
 The Uptime code is free to use and distribute, under the [MIT license](LICENSE).
 
-Uptime uses third-party libraries, including:
+The [favicon](http://www.alexpeattie.com/projects/justvector_icons/) is distributed under the [Free Art License](http://artlibre.org/licence/lal/en).
 
-* [Node.js](https://nodejs.org/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Express](https://expressjs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Mongoose](https://mongoosejs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Socket.IO](https://socket.io/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [EJS](https://ejs.co/), licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
-* [node-config](https://github.com/node-config/node-config), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Nodemailer](https://nodemailer.com/), licensed under the [MIT No Attribution License](https://opensource.org/license/mit-0)
-* [Moment.js](https://momentjs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [jQuery](https://jquery.com/), licensed under the [MIT License](https://jquery.org/license/)
-* [Bootstrap](https://getbootstrap.com/) and [Bootstrap Icons](https://icons.getbootstrap.com/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Chart.js](https://www.chartjs.org/), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Tagify](https://github.com/yairEO/tagify), licensed under the [MIT License](https://opensource.org/license/mit)
-* [Favicon](http://www.alexpeattie.com/projects/justvector_icons/), distributed under the [Free Art License](http://artlibre.org/licence/lal/en)
-
-See [`package.json`](package.json) for all the npm dependencies, and [`app/dashboard/public/vendor/README.md`](app/dashboard/public/vendor/README.md) for the versions of the frontend libraries bundled with the dashboard.
+See [`package.json`](package.json) for the third-party npm dependencies, and [`app/dashboard/public/vendor/README.md`](app/dashboard/public/vendor/README.md) for the versions of the frontend libraries bundled with the dashboard.
