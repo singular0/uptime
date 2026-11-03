@@ -1,7 +1,7 @@
 uptime
 ======
 
-A remote monitoring application using Node.js, MongoDB, and Twitter Bootstrap.
+A remote monitoring application using Node.js, MongoDB, and Bootstrap.
 
 <img src="https://raw.github.com/fzaninotto/uptime/downloads/check_details.png" title="Visualizing the availability of an HTTP check in Uptime" width="50%" valign="top" />
 <img src="https://raw.github.com/fzaninotto/uptime/downloads/check_form.png" title="Editing check attributes (polling interval, slow threshold, alert threshold, pattern to match, tags) in Uptime" width="50%" valign="top" />
@@ -13,56 +13,137 @@ You can watch a [demo screencast on Vimeo](https://vimeo.com/39302164).
 Features
 --------
 
-* Monitor thousands of websites (powered by [Node.js asynchronous programming](http://redotheweb.com/2012/01/23/nodejs-for-php-programmers-1-event-driven-programming-and-pasta.html))
-* Tweak frequency of monitoring on a per-check basis, up to the second
-* Check the presence of a pattern in the response body
-* Receive notifications whenever a check goes down
-  * On screen (powered by [socket.io](http://socket.io/))
+* Monitor thousands of websites and services over HTTP, HTTPS and UDP (powered by [Node.js](https://nodejs.org/))
+* Set the polling interval of each check, down to the second
+* Check the response body against a pattern, and send custom HTTP headers and options (e.g. to accept a self-signed certificate)
+* Receive notifications when a check goes down or back up
+  * On screen, in real time (powered by [socket.io](https://socket.io/))
   * By email
   * On the console
-* Record availability statistics for further reporting (powered by [MongoDB](http://www.mongodb.org/))
-* Detailed uptime reports with animated charts (powered by [Flotr2](http://www.humblesoftware.com/flotr2/))
-* Monitor availability, responsiveness, average response time, and total uptime/downtime
+* Record availability statistics for reporting (powered by [MongoDB](https://www.mongodb.com/))
+* Detailed uptime reports with charts (powered by [Chart.js](https://www.chartjs.org/))
+* Monitor availability, responsiveness, average response time, and total uptime and downtime
 * Get details about failed checks (HTTP error code, etc.)
 * Group checks by tags and get reports by tag
-* Familiar web interface (powered by [Twitter Bootstrap 2.0](http://twitter.github.com/bootstrap/index.html))
-* Complete API for integration with third-party monitoring services
-* Powerful plugin system to ease extension and customization
-* Easy installation and zero administration
+* Web interface built with [Bootstrap 5](https://getbootstrap.com/)
+* Complete REST API for integration with third-party monitoring services
+* Monitor from several locations by running monitors in different datacenters
+* Protect the dashboard and the API with HTTP Basic authentication
+* Plugin system to extend and customize Uptime
+* Docker image for linux/amd64 and linux/arm64
 
-Installing Uptime
------------------
+Running With Docker
+-------------------
 
-Uptime requires Node.js 26 or later, and MongoDB 4.4 or later. The 3.2 release supports Node.js 0.10 and MongoDB 2.1; older releases provide compatibility with Node 0.8 (Uptime v3.1) and 0.6 (Uptime v1.4).
+Uptime is published as a Docker image, `ghcr.io/singular0/uptime`. Each `vX.Y.Z` release is tagged `X.Y.Z`, `X.Y`, `X` and `latest`. The image runs the webapp and the monitor (`node app.js`) with `NODE_ENV=production` on port 8082.
 
-To install from GitHub, clone the repository and install dependencies using `npm`:
+Uptime stores its data in MongoDB 4.4 or later. This `compose.yaml` file runs Uptime with a MongoDB server:
 
-```sh
-$ git clone git://github.com/fzaninotto/uptime.git
-$ cd uptime
-$ npm install
+```yaml
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+  uptime:
+    image: ghcr.io/singular0/uptime:4
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - '8082:8082'
+    environment:
+      NODE_CONFIG: '{"mongodb":{"server":"mongo"}}'
+volumes:
+  mongo-data:
 ```
 
-Lastly, start the application with:
+Start it with:
 
 ```sh
-$ node app
+$ docker compose up -d
 ```
 
-If you want a production environment:
+To use an existing MongoDB server instead, run the image on its own:
 
 ```sh
-$ NODE_ENV=production node app
+$ docker run -d -p 8082:8082 \
+    -e NODE_CONFIG='{"mongodb":{"connectionString":"mongodb://mongo.example.com/uptime"}}' \
+    ghcr.io/singular0/uptime:4
 ```
 
-Upgrading From a 2.0 Install
+To change the configuration (see [Configuring](#configuring)), pass the settings to override as JSON in the `NODE_CONFIG` environment variable, as above, or mount a configuration file as `/app/config/production.yaml`:
+
+```yaml
+  uptime:
+    # ...
+    volumes:
+      - ./production.yaml:/app/config/production.yaml:ro
+```
+
+Mount the single file, not the whole directory, so that the image keeps `default.yaml`. Settings in `NODE_CONFIG` take precedence over the file.
+
+Uptime listens on the port of the `url` setting, or on port 80 if that URL has none. If you set `url` to the address that users browse to (the email plugin uses it in links), also set the `PORT` environment variable to `8082`.
+
+To add a plugin or an npm package to the image, build your own image from it. For instance, the `SES` method of the email plugin needs the AWS SDK:
+
+```dockerfile
+FROM ghcr.io/singular0/uptime:4
+USER root
+RUN npm install --omit=dev @aws-sdk/client-sesv2
+USER node
+```
+
+A plugin without dependencies can instead be mounted as a directory under `/app/plugins/`, and listed in the `plugins` setting.
+
+Upgrading From a 3.x Install
 ----------------------------
 
-If you have been using uptime 1.0 or 2.0, you have to execute the migration script before using the new release.
+Uptime 4.0 stores data in the same format as 3.x, so there is no migration script to run, and the REST API is unchanged. However, Uptime now requires MongoDB 4.4 or later, and some configuration and plugins need changes. See the [changelog](CHANGELOG.md) for the full list of changes.
 
-```sh
-$ node models/migrations/upgrade2to3
-```
+MongoDB only upgrades data files in place from the previous release series, so the simplest way to move to a new MongoDB server is to dump the data and restore it there. With the `compose.yaml` file from [Running With Docker](#running-with-docker):
+
+1. Stop the webapp and every monitor process, and dump the database with the tools of the old MongoDB server:
+
+   ```sh
+   $ mongodump --db uptime --out dump
+   ```
+
+2. Start the MongoDB container, and restore the dump into it:
+
+   ```sh
+   $ docker compose up -d mongo
+   $ docker compose cp dump mongo:/tmp/dump
+   $ docker compose exec mongo mongorestore /tmp/dump
+   ```
+
+3. Copy your `config/production.yaml` next to `compose.yaml`, mount it into the `uptime` container, and update it as described below. Remove `mongodb.connectionString` from it, because it takes precedence over the `mongodb.server` setting that points Uptime to the `mongo` container.
+4. Start Uptime:
+
+   ```sh
+   $ docker compose up -d
+   ```
+
+5. If you run monitors separately, replace them with containers too (see [Architecture](#architecture)).
+
+### Configuration Changes
+
+* `email` plugin: `transport` is passed as is to nodemailer 10, whose options changed since nodemailer 0.x (for instance, `secureConnection` is now `secure`). With the `Sendmail` method, `transport` holds the sendmail options, such as `path`. The `SES` method needs the AWS SDK in the image (see [Running With Docker](#running-with-docker)), and `transport` holds the `SESv2Client` options, such as `region` and `credentials`. See the comment at the top of [`plugins/email/index.js`](plugins/email/index.js).
+* MongoDB credentials: Uptime sends `mongodb.user` and `mongodb.password` only when both are set, and URL-encodes them. If you escaped special characters in the password yourself, remove the escaping. `mongodb.connectionString` is used as is.
+* `url`: if you set it, also set the `PORT` environment variable (see [Running With Docker](#running-with-docker)).
+
+### Plugin Changes
+
+Custom and third-party plugins written for 3.x will probably need updating:
+
+* Model methods return promises and no longer accept callbacks (Mongoose 9). For instance, `checkEvent.findCheck(function(err, check) { ... })` becomes `checkEvent.findCheck().then(function(check) { ... })`. Always add a `.catch()`, because an unhandled rejection stops the process.
+* Lifecycle events are unchanged. `beforeRemove` and `afterRemove` fire on `document.deleteOne()`, because Mongoose no longer has `document.remove()`.
+* The `app`, `api` and `dashboard` apps run on Express 5. `app.configure()` and the middlewares that Express 3 bundled, such as `express.basicAuth()` and `express.bodyParser()`, no longer exist. See the [Express 5 migration guide](https://expressjs.com/en/guide/migrating-5.html).
+* The `io` option passed to `initWebApp()` is a socket.io 4 server (plugins listed in `config.plugins` used to receive `undefined`). `socket.set()`, `socket.get()` and `io.set()` no longer exist; use `socket.data` and rooms instead.
+* Templates are rendered with EJS 7. Replace `<% include file %>` with `<%- include('file') %>`, and call `ejs.render(template, data)` instead of `ejs.render(template, { locals: data })`. This also applies to customized email templates in `plugins/email/views/`.
+* The dashboard uses Bootstrap 5 and jQuery 4. Form fields injected into the check edit page by a `checkEdit` listener need Bootstrap 5 markup (see the `httpOptions` and `patternMatcher` partials), and dashboard scripts can't use the jQuery functions removed in 4.0, such as `$.trim()` and `$.isArray()`.
+* Plugins that load one of Uptime's dependencies get its new major version. For instance, js-yaml's `safeLoad()` and `safeDump()` are now `load()` and `dump()`.
 
 Adding Checks
 -------------
@@ -109,46 +190,47 @@ plugins:
   # - ./plugins/email
 ```
 
-To modify this configuration, create a `development.yaml` or a `production.yaml` file in the same directory, and override just the settings you need. For instance, to run Uptime on port 80 in production, create a `production.yaml` file as follows:
+To modify this configuration, override just the settings you need in a `production.yaml` file, or in the `NODE_CONFIG` environment variable (see [Running With Docker](#running-with-docker)). For instance, to set the address that users browse to:
 
 ```yaml
-url: 'http://myDomain.com'
+url: 'https://uptime.example.com'
 ```
 
-Node that Uptime works great behind a proxy - it uses the `http_proxy` environment variable transparently.
-
-Running With Docker
--------------------
-
-Each `vX.Y.Z` tag publishes an image to `ghcr.io/singular0/uptime` (for linux/amd64 and linux/arm64), tagged `X.Y.Z`, `X.Y`, `X` and `latest`. The image runs `node app.js` with `NODE_ENV=production` on port 8082. Pass configuration overrides as JSON in the `NODE_CONFIG` environment variable:
-
-```sh
-$ docker run -d -p 8082:8082 \
-    -e NODE_CONFIG='{"mongodb":{"connectionString":"mongodb://mongo.example.com/uptime"}}' \
-    ghcr.io/singular0/uptime
-```
-
-Or mount a configuration file as `/app/config/production.yaml`. Mount the single file, not the whole directory, so that the image keeps `default.yaml`.
+Note that Uptime works great behind a proxy - it uses the `http_proxy` and `https_proxy` environment variables transparently.
 
 Architecture
 ------------
 
-Uptime is composed of two services: a webapp (in `app.js`), and a polling monitor (in `monitor.js)`. For your convenience, the two services start together when you call `node app`.
+Uptime is composed of two services: a webapp (in `app.js`), and a polling monitor (in `monitor.js`). For your convenience, the two services start together in the same container.
 
 <img src="https://raw.github.com/fzaninotto/uptime/downloads/architecture.png" title="Uptime architecture" />
 
 However, heavily browsing the webapp may slow down the whole server - including the polling monitor. In other terms, using the application can influence the uptime measurements. To avoid this effect, it is recommended to run the polling monitor in a separate process.
 
-To that extent, set the `autoStartMonitor` setting to `false` in the `production.yaml`, and launch the monitor by hand:
+To that extent, set the `autoStartMonitor` setting to `false` for the webapp, and run the monitor in its own container from the same image, with `node monitor.js` as the command. In the `compose.yaml` file from [Running With Docker](#running-with-docker), change the `uptime` service and add a `monitor` service:
 
-```sh
-$ node monitor &
-$ node app
+```yaml
+  uptime:
+    # ...
+    environment:
+      NODE_CONFIG: '{"mongodb":{"server":"mongo"},"autoStartMonitor":false}'
+  monitor:
+    image: ghcr.io/singular0/uptime:4
+    restart: unless-stopped
+    depends_on:
+      - uptime
+    command: node monitor.js
+    environment:
+      NODE_CONFIG: '{"monitor":{"apiUrl":"http://uptime:8082/api"}}'
 ```
 
-Don't forget to set `NODE_ENV=production` if you want to run the app in production environment.
+You can also run the monitor on a different server. This second server must be able to reach the API of the webapp server: set the `monitor.apiUrl` setting accordingly.
 
-You can also run the monitor in a different server. This second server must be able to reach the API of the webapp server: set the `monitor.apiUrl` setting accordingly in the `production.yaml` file of the monitor server.
+```sh
+$ docker run -d \
+    -e NODE_CONFIG='{"monitor":{"apiUrl":"https://uptime.example.com/api"}}' \
+    ghcr.io/singular0/uptime:4 node monitor.js
+```
 
 Monitoring From Various Locations
 ---------------------------------
