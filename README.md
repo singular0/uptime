@@ -117,6 +117,19 @@ url: 'http://myDomain.com'
 
 Node that Uptime works great behind a proxy - it uses the `http_proxy` environment variable transparently.
 
+Running With Docker
+-------------------
+
+Each `vX.Y.Z` tag publishes an image to `ghcr.io/singular0/uptime` (for linux/amd64 and linux/arm64), tagged `X.Y.Z`, `X.Y`, `X` and `latest`. The image runs `node app.js` with `NODE_ENV=production` on port 8082. Pass configuration overrides as JSON in the `NODE_CONFIG` environment variable:
+
+```sh
+$ docker run -d -p 8082:8082 \
+    -e NODE_CONFIG='{"mongodb":{"connectionString":"mongodb://mongo.example.com/uptime"}}' \
+    ghcr.io/singular0/uptime
+```
+
+Or mount a configuration file as `/app/config/production.yaml`. Mount the single file, not the whole directory, so that the image keeps `default.yaml`.
+
 Architecture
 ------------
 
