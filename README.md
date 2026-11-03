@@ -42,7 +42,7 @@ Uptime stores its data in MongoDB 4.4 or later. This `compose.yaml` file runs Up
 ```yaml
 services:
   mongo:
-    image: mongo:8
+    image: mongo:7 # MongoDB 8 doesn't start on Linux 6.19+ kernels (SERVER-121912)
     restart: unless-stopped
     volumes:
       - mongo-data:/data/db
