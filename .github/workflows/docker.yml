@@ -22,6 +22,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -53,3 +55,40 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          # The changelog heads each release "YYYY-MM-DD, vX.Y" or "YYYY-MM-DD, vX.Y.Z":
+          # take the section of this version, without its prerelease suffix
+          base=${VERSION%%-*}
+          for heading in "v$base" "v${base%.0}"; do
+            notes=$(awk -v heading="$heading" '
+              /^[0-9-]+, v[0-9]/ { if (found) exit; found = ($NF == heading); next }
+              found && !/^-+$/' CHANGELOG.md | sed '/./,$!d')
+            [ -n "$notes" ] && break
+          done
+
+          {
+            if [ -n "$notes" ]; then printf '%s\n\n' "$notes"; fi
+            # shellcheck disable=SC2016 # the backticks are a Markdown code fence
+            printf '## Docker image\n\n```sh\ndocker pull %s:%s\n```\n' "${IMAGE,,}" "$VERSION"
+          } > notes.md
+
+          args=(--title "$TAG" --notes-file notes.md --verify-tag)
+          # without a changelog section, GitHub lists the commits since the previous release
+          [ -n "$notes" ] || args+=(--generate-notes)
+          [[ "$VERSION" == *-* ]] && args+=(--prerelease)
+          gh release create "$TAG" "${args[@]}"
