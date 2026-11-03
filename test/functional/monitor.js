@@ -83,6 +83,18 @@ describe('monitor', function() {
     pings.pattern[0].error.should.eql('Response body does not match pattern /goodbye/');
   });
 
+  it('should encode the monitor name and the error message', async function() {
+    const special = Monitor.createMonitor({ name: 'eu & us 100%+', apiUrl: apiServer.url + '/api', timeout: 1000, userAgent: 'test' });
+    patternMatcher.initMonitor({ monitor: special });
+    const check = await Check.create({ name: 'pattern', type: 'http', url: target.url + '/ok', pollerParams: { match: '/a&b=c%20d+e/' } });
+    const checks = await findChecksNeedingPoll();
+    await util.promisify(special.pollCheck).call(special, checks[0]);
+    const pings = await Ping.find({ check: check._id });
+    pings.length.should.eql(1);
+    pings[0].monitorName.should.eql('eu & us 100%+');
+    pings[0].error.should.eql('Response body does not match pattern /a&b=c%20d+e/');
+  });
+
   it('should fail the ping when the poller type is unknown', async function() {
     await Check.create({ name: 'unknown', type: 'ftp', url: 'ftp://127.0.0.1/' });
     const pings = await pollAll();
