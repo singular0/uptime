@@ -74,9 +74,9 @@ var uptimeBar = (function(){
       }
 
       // if the status has changed since the current interval,
-      // then the status was up from currentIntervalBegin to status changed
+      // then the status was up from currentIntervalBegin to status changed,
+      // which the background of the bar already shows
       if (lastChanged > currentIntervalBegin) {
-        ret += availabilityBar(currentIntervalBegin, lastChanged, from, duration);
         currentIntervalBegin = lastChanged;
       }
 

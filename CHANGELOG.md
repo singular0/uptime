@@ -25,6 +25,7 @@ Uptime Changelog
 * Fix "up" events always having a zero downtime, so that notifications never said how long the check was down
 * Restyle the dashboard with Bootstrap 5.3: a full-width navbar with up, paused and down counts, a light, dark or automatic color mode, a summary card for each stat, a breadcrumb and period buttons tinted by availability to navigate dates, cards for the graphs and lists, a grouped check form, toasts for messages and live events, and a confirmation dialog before deleting a check
 * Fix the graphs and stats of the check and tag pages staying empty when the stats load before the page is ready
+* Fix the uptime bar of a check that is down or paused, which showed a stray red mark at the start of the bar
 * `npm test` now runs all test suites against the `uptime-test` database, and covers the REST API, the monitor, the pollers and the bundled plugins
 
 2013-04-22, v3.1
