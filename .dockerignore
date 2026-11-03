@@ -11,3 +11,4 @@ fixtures
 config/development.yaml
 config/runtime.json
 plugins/index.js
+docker-compose.yml

@@ -1,0 +1,26 @@
+# Runs Uptime from the local source with a MongoDB server:
+#   docker compose up --build
+# then browse to http://localhost:8082/
+services:
+  mongo:
+    image: mongo:7 # MongoDB 8 doesn't start on Linux 6.19+ kernels (SERVER-121912)
+    ports:
+      - '127.0.0.1:27017:27017' # lets `npm test` and the fixtures scripts use this server
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  uptime:
+    build: .
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - '8082:8082'
+    environment:
+      NODE_CONFIG: '{"mongodb":{"server":"mongo"}}'
+volumes:
+  mongo-data:
