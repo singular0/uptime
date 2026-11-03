@@ -3,6 +3,9 @@
   "description": "Remote monitoring for HTTP applications",
   "version": "4.0.0",
   "author": "Francois Zaninotto",
+  "maintainers": [
+    "Denis Yantarev <denis.yantarev@gmail.com>"
+  ],
   "dependencies": {
     "basic-auth": "^3.0.0",
     "config": "^5.0.1",
@@ -36,7 +39,10 @@
     "api",
     "check"
   ],
-  "repository": "https://github.com/fzaninotto/uptime",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/singular0/uptime.git"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=26"
