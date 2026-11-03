@@ -8,39 +8,22 @@ Uptime Changelog
 * Model methods, the QoS aggregator and the interval builder now return promises instead of taking callbacks (warning: changes the signature of methods used by plugins, e.g. `checkEvent.findCheck()`)
 * Replace the unmaintained mongoose-lifecycle and connect-flash packages with local equivalents (same events and API)
 * Poll queries use `$expr` instead of server-side JavaScript (`$where` is deprecated since MongoDB 8)
+* Remove the ICMP poller, which required running Uptime as root
+* Enable plugins by listing them in the `plugins` setting, and let them extend both the webapp and the monitor through `initWebApp()` and `initMonitor()` (warning: changes the plugin signature)
+* Add plugin extension points: plugins can register custom poller types in the poller collection, add per-check settings to the check form (`checkEdit`, `populateFromDirtyCheck`) stored in `check.pollerParams`, alter requests before polling (`pollerCreated`), inspect responses (`pollerPolled`), and store additional details in `ping.details`
+* Add the `basicAuth` plugin, to restrict access to the dashboard and the API with HTTP Basic authentication
+* Add the `httpOptions` plugin, to set custom headers and HTTP options on a check
+* Add the `patternMatcher` plugin, to check the response body against a pattern
+* Store sessions in a cookie instead of the in-memory store, which is not meant for production
+* HTTP and HTTPS pollers follow all 3xx redirects, 303 included
 * Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed
 * Fix relative redirects in HTTP and HTTPS pollers (now resolved against the current URL, port and protocol included)
+* Fix the monitor crashing on a check with an unknown poller type or an invalid URL
+* Fix the creation of checks without a URL
 * Fix plugins receiving an undefined socket.io instance in `initWebApp()`
 * Fix hourly, daily, monthly and yearly stats ignoring an outage still in progress at the end of the period once the check is back up, and counting the up time between two outages as downtime
 * Fix "up" events always having a zero downtime, so that notifications never said how long the check was down
 * `npm test` now runs all test suites against the `uptime-test` database, and covers the REST API, the monitor, the pollers and the bundled plugins
-
-To be released
---------------
-
-* Remove ICMP poller as it requires Uptime to be launched with root permissions to work
-* Add basicAuth plugin to restrict access to the API and dashboard apps using Basic Authentication
-* Upgrade moment.js to version 2.1
-* Add httpOptions plugin to allow setting custom headers or HTTP options to a check
-* Update the README about the plugin system
-* Update plugins system to make it easier to enable new plugins, just by adding a line in the configuration
-* Add pollerCollections to allow the addition of custom pollers
-* Update HTTP and HTTPS pollers (they now specialize a BaseHttpPoller, to reduce code duplication)
-* Fix monitor crash when poller is badly set
-* Update plugins to let them extend both the monitor and the webapp (warning: changes plugins signature)
-* Add architecture schema in the README
-* Update Dummy Target more to make it verbose on the console
-* Update Check model to store pollerParams
-* Update Ping model to store pollerDetails
-* Add new events to Monitor and dashboard app
-* Add more plugins extension points: they can now add details to checks, abilities to pollers, and store additional details about pings
-* Fix warnings in production by using cookie store for sessions
-* Add mention of external plugins in README
-* Add patternMatcher plugin to allow pattern detection in response body
-* Fix bug allowing the creation of empty checks
-* Add Http Status 303 to allowed redirect Types
-* Fix "Cannot set property 'protocol' of undefined" error when running Uptime behind a proxy
-* Node 0.10 support
 
 2013-04-22, v3.1
 ----------------
