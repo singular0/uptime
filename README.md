@@ -3,9 +3,6 @@ uptime
 
 A remote monitoring application using Node.js, MongoDB, and Bootstrap.
 
-<img src="https://raw.github.com/fzaninotto/uptime/downloads/check_details.png" title="Visualizing the availability of an HTTP check in Uptime" width="50%" valign="top" />
-<img src="https://raw.github.com/fzaninotto/uptime/downloads/check_form.png" title="Editing check attributes (polling interval, slow threshold, alert threshold, pattern to match, tags) in Uptime" width="50%" valign="top" />
-
 Features
 --------
 
@@ -199,7 +196,23 @@ Architecture
 
 Uptime is composed of two services: a webapp (in `app.js`), and a polling monitor (in `monitor.js`). For your convenience, the two services start together in the same container.
 
-<img src="https://raw.github.com/fzaninotto/uptime/downloads/architecture.png" title="Uptime architecture" />
+```mermaid
+flowchart TB
+    user((User))
+    target((Checked<br>service))
+    subgraph webapp ["webapp (app.js)"]
+        dashboard[dashboard]
+        api[api]
+    end
+    db[(MongoDB)]
+    monitor["monitor (monitor.js)"]
+    user --> dashboard
+    user --> api
+    dashboard --> db
+    api --> db
+    monitor -->|HTTP| api
+    monitor -->|polls| target
+```
 
 However, heavily browsing the webapp may slow down the whole server - including the polling monitor. In other terms, using the application can influence the uptime measurements. To avoid this effect, it is recommended to run the polling monitor in a separate process.
 
