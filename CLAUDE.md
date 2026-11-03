@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Uptime is a remote monitoring app built with Node.js, MongoDB, Express and socket.io. It is no longer maintained upstream, but this fork runs on Node.js 26+ and MongoDB 4.4+ with current dependencies: Express 5, Mongoose 9, socket.io 4, EJS 7, node-config 5 and Mocha 12. The code is CommonJS.
 
 - Mongoose 9 has no callbacks. Model methods, `lib/qosAggregator.js` and `lib/intervalBuilder.js` are async and return promises. Express 5 forwards rejections from async route handlers to the error handler.
+- API routes let errors propagate instead of wrapping them. An error middleware in `app/api/app.js` turns Mongoose `ValidationError`/`CastError` and `SyntaxError` into 400s. For any other client error, set `err.status` before throwing.
 - Fire-and-forget promises need a `.catch()`. An unhandled rejection crashes the process.
 - Assign `doc._id`, not a document, to ObjectId ref paths (e.g. `ping.check = check._id`). Mongoose otherwise stores it as populated, which changes `toJSON()` and `String(ping.check)`.
 - Mounted apps get their mount path from `req.baseUrl`. `app.route` is a method in Express 5.

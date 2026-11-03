@@ -67,9 +67,18 @@ describe('API pings', function() {
       (await Ping.countDocuments()).should.eql(0);
     });
 
-    it('should return a 500 error for invalid check identifiers', async function() {
+    it('should return a 400 error for invalid check identifiers', async function() {
       const res = await postPing({ checkId: 'toto', status: 'true' });
-      res.status.should.eql(500);
+      res.status.should.eql(400);
+    });
+
+    it('should return a 400 error for invalid ping data, without updating the check', async function() {
+      for (const fields of [{ time: 'abc' }, { timestamp: 'abc' }, { details: '{' }]) {
+        const res = await postPing(Object.assign({ checkId: check.id, status: 'true', timestamp: Date.now(), time: 100, name: 'monitor1' }, fields));
+        res.status.should.eql(400, JSON.stringify(fields));
+      }
+      (await Ping.countDocuments()).should.eql(0);
+      should.not.exist((await Check.findById(check._id)).lastTested);
     });
 
   });

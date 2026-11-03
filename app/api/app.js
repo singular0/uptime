@@ -3,6 +3,7 @@
  */
 const express      = require('express');
 const errorHandler = require('errorhandler');
+const mongoose     = require('mongoose');
 const Check      = require('../../models/check');
 const CheckEvent = require('../../models/checkEvent');
 
@@ -65,6 +66,16 @@ app.get('/', function(req, res) {
 });
 
 // error handling, after all routes
+
+// invalid request data (bad ids or dates, fields failing validation, invalid ping details JSON)
+// is a client error, not a server error
+app.use(function(err, req, res, next) {
+  if (!err.status && (err instanceof mongoose.Error.ValidationError || err instanceof mongoose.Error.CastError || err instanceof SyntaxError)) {
+    err.status = 400;
+  }
+  next(err);
+});
+
 if (['development', 'test', 'production'].indexOf(app.get('env')) !== -1) {
   app.use(errorHandler());
 }

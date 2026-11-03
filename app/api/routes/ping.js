@@ -35,12 +35,7 @@ module.exports = function(app) {
   });
 
   app.post('/pings', async function(req, res) {
-    let check;
-    try {
-      check = await Check.findById(req.body.checkId);
-    } catch (err1) {
-      return res.status(500).send(err1.message);
-    }
+    const check = await Check.findById(req.body.checkId);
     if (!check) {
       return res.status(403).send('Error: No existing check with id ' + req.body.checkId);
     }
@@ -48,12 +43,7 @@ module.exports = function(app) {
       return res.status(403).send('Error: This check was already polled. No ping was created');
     }
     const status = req.body.status === 'true';
-    let ping;
-    try {
-      ping = await Ping.createForCheck(status, req.body.timestamp, req.body.time, check, req.body.name, req.body.error, req.body.details);
-    } catch (err2) {
-      return res.status(500).send(err2.message);
-    }
+    const ping = await Ping.createForCheck(status, req.body.timestamp, req.body.time, check, req.body.name, req.body.error, req.body.details);
     res.json(ping);
   });
 

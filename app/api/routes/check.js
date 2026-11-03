@@ -92,19 +92,21 @@ module.exports = function(app) {
     res.json(await CheckEvent.aggregateEventsByDay(events));
   });
 
- app.put('/checks', async function(req, res, next) {
+ // a body that can't populate the check, including one that a plugin rejects, is a bad request
+ const populateCheck = function(check, dirtyCheck) {
+   try {
+     check.populateFromDirtyCheck(dirtyCheck, app.get('pollerCollection'));
+     app.emit('populateFromDirtyCheck', check, dirtyCheck, check.type);
+   } catch (err) {
+     err.status = 400;
+     throw err;
+   }
+ };
+
+ app.put('/checks', async function(req, res) {
    const check = new Check();
-   try {
-     check.populateFromDirtyCheck(req.body, app.get('pollerCollection'));
-     app.emit('populateFromDirtyCheck', check, req.body, check.type);
-   } catch (checkException) {
-     return next(checkException);
-   }
-   try {
-     await check.save();
-   } catch (saveError) {
-     return next({status:500, error: saveError});
-   }
+   populateCheck(check, req.body);
+   await check.save();
    res.json(check);
  });
 
@@ -114,25 +116,10 @@ module.exports = function(app) {
  });
 
  app.post('/checks/:id', async function(req, res, next) {
-   let check;
-   try {
-     check = await Check.findOne({ _id: req.params.id });
-   } catch (err) {
-     return next({status:500, error: err});
-   }
+   const check = await Check.findOne({ _id: req.params.id });
    if (!check) return next({status:404, error: 'failed to load check ' + req.params.id})
-
-   try {
-     check.populateFromDirtyCheck(req.body, app.get('pollerCollection'));
-     app.emit('populateFromDirtyCheck', check, req.body, check.type);
-   } catch (checkException) {
-     return next(checkException);
-   }
-   try {
-     await check.save();
-   } catch (saveError) {
-     return next({status:500, error: saveError});
-   }
+   populateCheck(check, req.body);
+   await check.save();
    res.json(check);
  });
 };

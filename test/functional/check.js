@@ -85,6 +85,11 @@ describe('API checks', function() {
       res.body.error.should.match(/failed to load check/);
     });
 
+    it('should return a 400 error if the id is not valid', async function() {
+      const res = await request(api + '/checks/toto');
+      res.status.should.eql(400);
+    });
+
   });
 
   describe('PUT /checks', function() {
@@ -106,15 +111,29 @@ describe('API checks', function() {
 
     it('should not add an invalid element with no url', async function() {
       const res = await request(api + '/checks', 'PUT', { name: 'test' });
-      res.status.should.be.aboveOrEqual(400);
+      res.status.should.eql(400);
       res.body.error.message.should.eql('URL must be defined');
       (await Check.countDocuments()).should.eql(0);
     });
 
     it('should not add an element whose url does not match the poller type', async function() {
       const res = await request(api + '/checks', 'PUT', { url: 'http://test.local', type: 'https' });
-      res.status.should.be.aboveOrEqual(400);
+      res.status.should.eql(400);
       res.body.error.message.should.match(/mismatch/);
+      (await Check.countDocuments()).should.eql(0);
+    });
+
+    it('should not add an element with an unknown poller type', async function() {
+      const res = await request(api + '/checks', 'PUT', { url: 'http://test.local', type: 'gopher' });
+      res.status.should.eql(400);
+      res.body.error.message.should.eql('Undefined poller type: gopher');
+      (await Check.countDocuments()).should.eql(0);
+    });
+
+    it('should not add an element that fails the schema validation', async function() {
+      const res = await request(api + '/checks', 'PUT', { url: 'http://test.local', maxTime: 'abc' });
+      res.status.should.eql(400);
+      res.body.error.message.should.match(/^Check validation failed: maxTime/);
       (await Check.countDocuments()).should.eql(0);
     });
 
@@ -128,10 +147,10 @@ describe('API checks', function() {
       check = await Check.create({ name: 'name1', url: 'http://www.url1.fr' });
     });
 
-    it('should return an error if the id is not valid', async function() {
+    it('should return a 400 error if the id is not valid', async function() {
       const res = await request(api + '/checks/toto', 'POST', { name: 'test' });
-      res.status.should.be.aboveOrEqual(400);
-      res.body.should.have.property('error');
+      res.status.should.eql(400);
+      res.body.error.message.should.match(/Cast to ObjectId failed/);
     });
 
     it('should return a 404 error if the element does not exist', async function() {
@@ -147,6 +166,18 @@ describe('API checks', function() {
       const saved = await Check.findById(check._id);
       saved.url.should.eql('https://newurl.test');
       saved.type.should.eql('https');
+    });
+
+    it('should not update the element if the parameters are not valid', async function() {
+      let res = await request(api + '/checks/' + check.id, 'POST', { url: 'http://newurl.test', type: 'https' });
+      res.status.should.eql(400);
+      res.body.error.message.should.match(/mismatch/);
+      res = await request(api + '/checks/' + check.id, 'POST', { maxTime: 'abc' });
+      res.status.should.eql(400);
+      res.body.error.message.should.match(/^Check validation failed: maxTime/);
+      const saved = await Check.findById(check._id);
+      saved.url.should.eql('http://www.url1.fr');
+      saved.maxTime.should.eql(1500);
     });
 
     it('should not throw error if called twice on same id', async function() {
@@ -234,6 +265,17 @@ describe('API checks', function() {
       events[0].check.should.eql({ _id: check.id, name: 'name1', url: 'http://www.url1.fr' });
       events[0].downtime.should.eql(1000);
       events[1].details.should.eql('HTTP status 500');
+    });
+
+  });
+
+  describe('GET /checks/:id/events with an invalid date', function() {
+
+    it('should return a 400 error', async function() {
+      const check = await Check.create({ name: 'name1', url: 'http://www.url1.fr' });
+      const res = await request(api + '/checks/' + check.id + '/events?begin=yesterday');
+      res.status.should.eql(400);
+      res.body.error.message.should.match(/Cast to date failed/);
     });
 
   });
