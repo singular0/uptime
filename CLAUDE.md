@@ -32,7 +32,7 @@ npx mocha test/unit/check.js -g "should update object"   # single test
 
 Suites live in `test/functional/` (REST API and the monitor end to end, through the full app), `test/lib/` (models and libraries, against MongoDB), `test/plugins/` and `test/unit/` (no database). Shared helpers are in `test/helpers.js`: `listen(handler)` starts a server on a random port, `request()` sends JSON with `fetch`, `clear(...models)` empties collections, and `eventually()` retries assertions on side effects that the code doesn't await. Tests never use fixed ports and never reach the network. `config/test.yaml` disables the monitor and the console plugin, and `test/setup.js` unsets `http_proxy`/`https_proxy`.
 
-CI: `.github/workflows/test.yml` runs `npm test` against a `mongo:8` service on every branch push and pull request. `.github/workflows/docker.yml` builds and pushes the image on `v*.*.*` tags, and calls `test.yml` first so the image is only published when the tests pass.
+CI: `.github/workflows/test.yml` runs `npm test` against a `mongo:7` service on every branch push and pull request (MongoDB 8.0+ refuses to start on the runners' Linux 6.19+ kernel, see SERVER-121912). `.github/workflows/docker.yml` builds and pushes the image on `v*.*.*` tags, and calls `test.yml` first so the image is only published when the tests pass.
 
 To get sample data for the dashboard, see `fixtures/README.md`: run `node fixtures/populate.js`, then `node fixtures/computeStats.js`, then `node fixtures/dummyTarget.js`.
 

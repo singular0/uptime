@@ -17,7 +17,8 @@ jobs:
     services:
       # config/test.yaml connects to localhost without credentials
       mongo:
-        image: mongo:8
+        # MongoDB 8.0+ refuses to start on Linux 6.19+ kernels, including the runners' (SERVER-121912)
+        image: mongo:7
         ports:
           - 27017:27017
         options: >-
