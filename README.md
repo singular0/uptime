@@ -8,8 +8,6 @@ A remote monitoring application using Node.js, MongoDB, and Bootstrap.
 
 You can watch a [demo screencast on Vimeo](https://vimeo.com/39302164).
 
-**Warning**: This application isn't actively maintained anymore. You can find many alternatives, from completely free to very cheap, in [this list of website monitoring services](http://www.supermonitoring.com/blog/the-updated-list-of-website-monitoring-services/).
-
 Features
 --------
 
@@ -544,31 +542,25 @@ Parameter :
 
 Ex: `http://localhost:8082/api/tags/good/events?begin=1383260400000&end=1385852399999`
 
-Support and Discussion
-----------------------
-
-Join the [node-uptime](https://groups.google.com/d/forum/node-uptime) Google Group to discuss features, bugs and use cases related to Uptime.
-
 License
 -------
 
-The Uptime code is free to use and distribute, under the [MIT license](https://raw.github.com/fzaninotto/uptime/master/LICENSE).
+The Uptime code is free to use and distribute, under the [MIT license](LICENSE).
 
-Uptime uses third-party libraries:
+Uptime uses third-party libraries, including:
 
-* [NodeJS](http://nodejs.org/), licensed under the [MIT License](https://github.com/joyent/node/blob/master/LICENSE#L5-22),
-* [Socket.io](http://socket.io/), licensed under the [MIT License](https://github.com/LearnBoost/socket.io/blob/master/Readme.md),
-* [MongooseJS](http://mongoosejs.com/), licensed under the [MIT License](https://github.com/LearnBoost/mongoose/blob/master/README.md),
-* [jQuery](http://jquery.com/), licensed under the [MIT License](http://jquery.org/license),
-* [TwitterBootstrap](http://twitter.github.com/bootstrap/), licensed under the [Apache License v2.0](http://www.apache.org/licenses/LICENSE-2.0),
-* [Flotr2](http://www.humblesoftware.com/flotr2/), licensed under the [MIT License](https://github.com/HumbleSoftware/Flotr2/blob/master/LICENSE).
-* [Favicon](http://www.alexpeattie.com/projects/justvector_icons/), distributed under the [Free Art License](http://artlibre.org/licence/lal/en).
+* [Node.js](https://nodejs.org/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Express](https://expressjs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Mongoose](https://mongoosejs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Socket.IO](https://socket.io/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [EJS](https://ejs.co/), licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+* [node-config](https://github.com/node-config/node-config), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Nodemailer](https://nodemailer.com/), licensed under the [MIT No Attribution License](https://opensource.org/license/mit-0)
+* [Moment.js](https://momentjs.com/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [jQuery](https://jquery.com/), licensed under the [MIT License](https://jquery.org/license/)
+* [Bootstrap](https://getbootstrap.com/) and [Bootstrap Icons](https://icons.getbootstrap.com/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Chart.js](https://www.chartjs.org/), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Tagify](https://github.com/yairEO/tagify), licensed under the [MIT License](https://opensource.org/license/mit)
+* [Favicon](http://www.alexpeattie.com/projects/justvector_icons/), distributed under the [Free Art License](http://artlibre.org/licence/lal/en)
 
-If you like the software, please help improving it by contributing PRs on the [GitHub project](https://github.com/fzaninotto/uptime)!
-
-TODO
-----
-
-* Account for scheduled maintenance (and provide two QoS calculations: with and without scheduled maintenance)
-* Allow for JavaScript execution in the monitored resources by using a headless browser (probably zombie.js)
-* Unit tests
+See [`package.json`](package.json) for all the npm dependencies, and [`app/dashboard/public/vendor/README.md`](app/dashboard/public/vendor/README.md) for the versions of the frontend libraries bundled with the dashboard.
