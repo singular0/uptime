@@ -30,7 +30,6 @@
 var fs   = require('fs');
 var ejs  = require('ejs');
 var yaml = require('js-yaml');
-var express = require('express');
 
 var template = fs.readFileSync(__dirname + '/views/_detailsEdit.ejs', 'utf8');
 
@@ -68,8 +67,6 @@ exports.initWebApp = function(options) {
     }
     partial.push(ejs.render(template, { check: check }));
   });
-
-  options.app.use(express.static(__dirname + '/public'));
 
 };
 

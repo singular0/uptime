@@ -1,21 +1,25 @@
-<script src="/httpOptions/javascripts/jquery.autoresize.js"></script>
-<fieldset>
-  <div class="control-group">
-    <label class="control-label">HTTP Options</label>
-    <div class="controls">
-      <textarea name="check[http_options]" class="span8" rows="3" placeholder="Use YAML format, e.g method: HEAD"/><%= check.getPollerParam('http_options') || '' %></textarea>
-      <span class="help-inline">See the
-        <% if (check.type === "http") { %>
-        <a target="_blank" href="http://nodejs.org/api/http.html#http_http_request_options_callback">Node.js HTTP
-        <% } else { %>
-        <a target="_blank" href="http://nodejs.org/api/https.html#https_https_request_options_callback">Node.js HTTPS
-        <% } %>
-        documentation</a> for a list of available options</span>
-    </div>
+<div class="row mb-3">
+  <label class="col-sm-2 col-form-label" for="check_http_options">HTTP Options</label>
+  <div class="col-sm-10">
+    <textarea id="check_http_options" name="check[http_options]" class="form-control" rows="3" placeholder="Use YAML format, e.g method: HEAD"><%= check.getPollerParam('http_options') || '' %></textarea>
+    <div class="form-text">See the
+      <% if (check.type === "http") { %>
+      <a target="_blank" href="https://nodejs.org/api/http.html#httprequestoptions-callback">Node.js HTTP
+      <% } else { %>
+      <a target="_blank" href="https://nodejs.org/api/https.html#httpsrequestoptions-callback">Node.js HTTPS
+      <% } %>
+      documentation</a> for a list of available options</div>
   </div>
-</fieldset>
-<script type="text/javascript">
-jQuery(function($) {
-  $('#check_form textarea[name="check[http_options]"]').autoResize();
-});
+</div>
+<script>
+(function() {
+  // grow the textarea with its content
+  var textarea = document.getElementById('check_http_options');
+  var resize = function() {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + textarea.offsetHeight - textarea.clientHeight + 'px';
+  };
+  textarea.addEventListener('input', resize);
+  resize();
+})();
 </script>

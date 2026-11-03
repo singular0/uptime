@@ -12,15 +12,12 @@ StatNavigation.prototype.init = function() {
       statPane.find('.avgRespTime').text(stat.responseTime);
       if (stat.downtime) {
         statPane.find('.downtime').text(moment.duration(stat.downtime, 'seconds').humanize());
-        statPane.find('.downtime').parentsUntil('li').show();
+        statPane.find('.downtime').closest('.list-group-item').show();
         $('#events').show();
       } else {
-        statPane.find('.downtime').parentsUntil('li').hide();
+        statPane.find('.downtime').closest('.list-group-item').hide();
         $('#events').hide();
       }
     }
-  });
-  $('#secondaryNav').affix({
-    offset: $('#dateNavigation').position()
   });
 }

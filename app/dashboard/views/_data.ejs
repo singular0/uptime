@@ -29,37 +29,37 @@
   </table>
 </div>
 <script id="stat_template" type="text/template">
-<tr class="{{= (stat.availability < 100) ? 'red' : (stat.responsiveness < 100) ? 'orange' : '' }}{{= ['0','6'].indexOf(moment(stat.timestamp).format('d')) !== -1 ? ' week-end' : '' }}">
-  <td title="{{= new Date(stat.timestamp) }}"><a href="#" class="date" data-type="{{= subType }}" data-date="{{= stat.timestamp }}">{{= moment(stat.timestamp).format(dateFormat) }}</a></td>
-  <td>{{= stat.availability.replace('.000', '') }}%</td>
-  <td title="{{= stat.downtime }}s">{{= stat.downtime == 0 ? '' : stat.downtime < 300 ? stat.downtime + 's' : moment.duration(stat.downtime, 'seconds').humanize() }}</td>
-  <td>{{= stat.responsiveness.replace('.000', '') }}%</td>
-  <td>{{= stat.responseTime }}ms</td>
+<tr class="{%= (stat.availability < 100) ? 'red' : (stat.responsiveness < 100) ? 'orange' : '' %}{%= ['0','6'].indexOf(moment(stat.timestamp).format('d')) !== -1 ? ' week-end' : '' %}">
+  <td title="{%= new Date(stat.timestamp) %}"><a href="#" class="date" data-type="{%= subType %}" data-date="{%= stat.timestamp %}">{%= moment(stat.timestamp).format(dateFormat) %}</a></td>
+  <td>{%= stat.availability.replace('.000', '') %}%</td>
+  <td title="{%= stat.downtime %}s">{%= stat.downtime == 0 ? '' : stat.downtime < 300 ? stat.downtime + 's' : moment.duration(stat.downtime, 'seconds').humanize() %}</td>
+  <td>{%= stat.responsiveness.replace('.000', '') %}%</td>
+  <td>{%= stat.responseTime %}ms</td>
 </tr>
 </script>
 <script id="ping_template" type="text/template">
-<tr class="{{= !ping.isUp ? 'red' : !ping.isResponsive ? 'orange' : '' }}">
-  <td title="{{= new Date(ping.timestamp) }}">{{= moment(ping.timestamp).format('LLLL') }}</td>
+<tr class="{%= !ping.isUp ? 'red' : !ping.isResponsive ? 'orange' : '' %}">
+  <td title="{%= new Date(ping.timestamp) %}">{%= moment(ping.timestamp).format('LLLL') %}</td>
   <td>
-    <span class="label {{= (ping.isUp ? 'label-success' : 'label-important') }}">{{= (ping.isUp ? 'Up' : 'Down') }}</span>
-    {{ if (ping.isUp && !ping.isResponsive) { }}<span class="label label-warning">Slow</span>{{ } }}
+    <span class="badge {%= (ping.isUp ? 'text-bg-success' : 'text-bg-danger') %}">{%= (ping.isUp ? 'Up' : 'Down') %}</span>
+    {% if (ping.isUp && !ping.isResponsive) { %}<span class="badge text-bg-warning">Slow</span>{% } %}
   </td>
-  <td>{{= parseInt(ping.time) }}ms</td>
+  <td>{%= parseInt(ping.time) %}ms</td>
   <td>
-    {{ if (pingHasValidUrl(ping)) { }}
-      <a href="{{= ping.details.url }}">See report</a>
-    {{ } }}
+    {% if (pingHasValidUrl(ping)) { %}
+      <a href="{%= ping.details.url %}">See report</a>
+    {% } %}
   </td>
-  <td class="error">{{= ping.error || '' }}</td>
+  <td class="error">{%= ping.error || '' %}</td>
 </tr>
 </script>
 <script>
 $(document).ready(function() {
   var pingHasValidUrl = function(ping) {
-    return ping.details && ping.details.url && /^([a-z]([a-z]|\d|\+|-|\.)*):(\/\/(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?((\[(|(v[\da-f]{1,}\.(([a-z]|\d|-|\.|_|~)|[!\$&'\(\)\*\+,;=]|:)+))\])|((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=])*)(:\d*)?)(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*|(\/((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)|((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)|((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)){0})(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(\#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?$/i.test(ping.details.url);
+    return ping.details && isSafeUrl(ping.details.url);
   };
-  var stat_template = document.getElementById('stat_template').innerHTML;
-  var ping_template = document.getElementById('ping_template').innerHTML;
+  var stat_template = ejs.compile(document.getElementById('stat_template').innerHTML);
+  var ping_template = ejs.compile(document.getElementById('ping_template').innerHTML);
   var updateStats = function() {
     var dateFormats = {
       'day': 'LLLL',
@@ -76,7 +76,7 @@ $(document).ready(function() {
     if (type == 'hour') {
       // display pings
       $.each(stats, function(key, stat) {
-          lines.unshift(ejs.render(ping_template, { ping: stat, pingHasValidUrl: pingHasValidUrl }));
+          lines.unshift(ping_template({ ping: stat, pingHasValidUrl: pingHasValidUrl }));
       });
       $('#data .stat').hide();
       $('#data .ping tbody').html(lines.join(''));
@@ -84,7 +84,7 @@ $(document).ready(function() {
     } else {
       // display aggregated stats
       $.each(stats, function(key, stat) {
-        lines.unshift(ejs.render(stat_template, { stat: stat, dateFormat: dateFormats[type], subType: subType }));
+        lines.unshift(stat_template({ stat: stat, dateFormat: dateFormats[type], subType: subType }));
       });
       $('#data .ping').hide();
       $('#data .stat tbody').html(lines.join(''));

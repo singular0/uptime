@@ -28,11 +28,11 @@ DateInterval.prototype.endsBeforeNow = function() {
 }
 DateInterval.prototype.getNextDate = function(type) {
   type = type || this.type;
-  return this.momentForDate.clone().add(type + 's', 1);
+  return this.momentForDate.clone().add(1, type);
 }
 DateInterval.prototype.getPreviousDate = function(type) {
   type = type || this.type;
-  return this.momentForDate.clone().subtract(type + 's', 1);
+  return this.momentForDate.clone().subtract(1, type);
 }
 DateInterval.prototype.refreshData = function() {
   var self = this;
@@ -49,6 +49,10 @@ DateInterval.prototype.getIntervalQueryString = function() {
   return '?begin=' + this.begin.valueOf() + '&end=' + this.end.valueOf();
 }
 DateInterval.prototype.types = ['year', 'month', 'day', 'hour', 'tenminutes'];
+DateInterval.prototype.isValidType = function(type) {
+  var index = this.types.indexOf(type);
+  return index !== -1 && index <= this.types.indexOf(this.maxZoom);
+}
 DateInterval.prototype.isMaxZoom = function() {
   return (this.type === this.maxZoom);
 }
@@ -64,7 +68,7 @@ DateInterval.prototype.superType = function(type) {
   return this.types[index - 1];
 }
 DateInterval.prototype.getSubTypeDuration = function() {
-  var date = new moment();
+  var date = moment();
   return date.endOf(this.subType(this.type)).valueOf() - date.startOf(this.subType(this.type)).valueOf();
 }
 DateInterval.prototype.on = function(eventName, callback) {

@@ -1,11 +1,10 @@
-<script src="<%= route %>/javascripts/jquery.tablesorter.min.js"></script>
+<script src="<%= route %>/javascripts/sortableTable.js"></script>
 <script src="<%= route %>/javascripts/uptimeBar.js"></script>
-<script src="<%= route %>/javascripts/ejs.min.js"></script>
-<h1>Checks <small class="pull-right">last 24 hours</small></h1>
+<h1>Checks <small class="float-end text-body-secondary fs-5">last 24 hours</small></h1>
 <% if (info.length) { %>
 <div class="alert alert-success"><%= info %></div>
 <% } %>
-<div style="text-align:right">
+<div class="text-end">
   <a class="btn btn-primary" href="<%= route %>/checks/new">Create check</a>
 </div>
 <table class="table" id="checks">
@@ -21,54 +20,46 @@
 </table>
 <script id="check_template" type="text/template">
 <tr>
-  <td data-sort="{{= check.name }}">
-    <a href="{{=  route + '/checks/' + check._id }}">{{= check.name }}</a>
-    <a href="{{= check.url }}" target="_blank"><img src="{{= route }}/images/external-link-ltr-icon.png"></a>
+  <td data-sort="{%= check.name %}">
+    <a href="{%=  route + '/checks/' + check._id %}">{%= check.name %}</a>
+    {% if (isSafeUrl(check.url)) { %}<a href="{%= check.url %}" target="_blank"><img src="{%= route %}/images/external-link-ltr-icon.png"></a>{% } %}
   </td>
-  {{ if (check.lastTested) { }}
-    {{ if (check.isPaused) { }}
-  <td data-sort="{{= check.isUp ? check.uptime : -check.downtime }}"><span class="label label-info">paused</span> <span class="blue"> for <span title="{{= new Date(check.lastChanged) }}">{{= moment(check.lastChanged).fromNow(true) }}</span></span></td>
-    {{ } else if (check.isUp) { }}
-  <td data-sort="{{= check.uptime }}"><span class="label label-success">Up</span> <span class="green"> for <span title="{{= new Date(check.lastChanged) }}">{{= moment(check.lastChanged).fromNow(true) }}</span></span></td>
-    {{ } else { }}
-  <td data-sort="{{= -check.downtime }}"><span class="label label-important">Down</span> <span class="red"> for <span title="{{= new Date(check.lastChanged) }}">{{= moment(check.lastChanged).fromNow(true) }}</span></span></td>
-    {{ } }}
-  {{ } else { }}
-  <td data-sort="0"><span class="label label-important">down</span> <span class="label label-warning">new</span></td>
-  {{ } }}
-  {{ if (check.qos) { }}
-  <td data-sort="{{= check.qos.availability }}">
-      {{- uptimeBar('check', {
+  {% if (check.lastTested) { %}
+    {% if (check.isPaused) { %}
+  <td data-sort="{%= check.isUp ? check.uptime : -check.downtime %}"><span class="badge text-bg-info">paused</span> <span class="blue"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
+    {% } else if (check.isUp) { %}
+  <td data-sort="{%= check.uptime %}"><span class="badge text-bg-success">Up</span> <span class="green"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
+    {% } else { %}
+  <td data-sort="{%= -check.downtime %}"><span class="badge text-bg-danger">Down</span> <span class="red"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
+    {% } %}
+  {% } else { %}
+  <td data-sort="0"><span class="badge text-bg-danger">down</span> <span class="badge text-bg-warning">new</span></td>
+  {% } %}
+  {% if (check.qos) { %}
+  <td data-sort="{%= check.qos.availability %}">
+      {%- uptimeBar('check', {
         from: Date.now() - 24 * 60 * 60 * 1000,
         to: Date.now(),
         periods: check.qos.outages || [],
         check: check
-       }) }}</td>
-  <td data-sort="{{= check.qos.responseTime }}">{{= Math.round(check.qos.responseTime) }}ms</td>
-  {{ } else { }}
+       }) %}</td>
+  <td data-sort="{%= check.qos.responseTime %}">{%= Math.round(check.qos.responseTime) %}ms</td>
+  {% } else { %}
   <td data-sort="0">-</td>
   <td data-sort="0">-</td>
-  {{ } }}
+  {% } %}
 </tr>
 </script>
 <script>
 jQuery(document).ready(function($) {
   // highlight current section in main nav
-  $('.navbar-inner li').eq(1).addClass('active');
+  $('#mainNav .nav-link').eq(1).addClass('active');
 
-  // make the chesk table sortable
-  $('#checks').tablesorter({
-    textExtraction: function(node) {
-      return $(node).data('sort');
-    },
-    sortList: [[1,0]]
-  });
+  // make the check table sortable
+  var checksTable = new SortableTable(document.getElementById('checks'), { column: 1 });
 
   // Fill in the table
-  var check_template = document.getElementById('check_template').innerHTML;
-  var ejs = require('ejs');
-  ejs.open = '{{';
-  ejs.close = '}}';
+  var check_template = ejs.compile(document.getElementById('check_template').innerHTML);
   var updateChecks = function(checks) {
     var updateChecksSection = function(checks) {
       var lines = [];
@@ -77,10 +68,10 @@ jQuery(document).ready(function($) {
         if (new Date(check.lastTested) > lastTest) {
           lastTest = new Date(check.lastTested);
         }
-        lines.push(ejs.render(check_template, { check: check, route: '<%= route %>' }));
+        lines.push(check_template({ check: check, route: '<%= route %>' }));
       });
       $('#checks tbody').html(lines.join(''));
-      $('#checks').trigger('update');
+      checksTable.sort();
     }
 
     if (checks) {
@@ -89,7 +80,7 @@ jQuery(document).ready(function($) {
       $.getJSON('/api/checks', updateChecksSection);
     }
   }
-  updateChecks(<%- JSON.stringify(checks) %>);
+  updateChecks(<%- jsonForScript(checks) %>);
   socket.on('CheckEvent', function(data) { updateChecks() });
   window.setInterval(updateChecks, 5 * 60 * 1000); // refresh every 5 minutes to update the qos scores
 

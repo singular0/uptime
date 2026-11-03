@@ -26,11 +26,11 @@ app.use(flash());
 app.use(function locals(req, res, next) {
   const route = req.baseUrl; // mount path of the dashboard
   res.locals.route = route;
-  res.locals.addedCss = [];
+  res.locals.addedCss = []; // stylesheet paths relative to the dashboard root
   res.locals.renderCssTags = function (all) {
     if (all != undefined) {
       return all.map(function(css) {
-        return '<link rel="stylesheet" href="' + route + '/stylesheets/' + css + '">';
+        return '<link rel="stylesheet" href="' + route + '/' + css + '">';
       }).join('\n ');
     } else {
       return '';
@@ -41,6 +41,23 @@ app.use(function locals(req, res, next) {
 });
 
 app.locals.version = moduleInfo.version;
+app.locals.isSafeUrl = require('./public/javascripts/safeUrl');
+
+// Serializes a value for an inline <script>. Escaping "<" keeps a string such as
+// "</script>" in user data from closing the script element.
+app.locals.jsonForScript = function(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+};
+
+// The check and tag pages show the period given in the query string. Only let through a
+// known period type and a number, since both are written into an inline script.
+const intervalFromQuery = function(query, types) {
+  const date = Number(query.date);
+  return {
+    type: types.includes(query.type) ? query.type : 'month',
+    date: Number.isFinite(date) && date > 0 ? date : Date.now()
+  };
+};
 
 // Routes
 
@@ -74,7 +91,7 @@ app.post('/checks', async function(req, res, next) {
 app.get('/checks/:id', async function(req, res) {
   const check = await Check.findOne({ _id: req.params.id });
   if (!check) return res.status(404).send('failed to load check ' + req.params.id);
-  res.render('check', { check: check, info: req.flash('info'), req: req });
+  res.render('check', { check: check, info: req.flash('info'), interval: intervalFromQuery(req.query, ['year', 'month', 'day', 'hour']) });
 });
 
 app.get('/checks/:id/edit', async function(req, res) {
@@ -127,7 +144,7 @@ app.get('/tags', async function(req, res) {
 app.get('/tags/:name', async function(req, res, next) {
   const tag = await Tag.findOne({ name: req.params.name });
   if (!tag) return next(new Error('failed to load tag ' + req.params.name));
-  res.render('tag', { tag: tag, req: req });
+  res.render('tag', { tag: tag, interval: intervalFromQuery(req.query, ['year', 'month', 'day']) });
 });
 
 // static assets and error handling, after all routes
