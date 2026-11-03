@@ -26,7 +26,7 @@ node models/migrations/upgrade2to3   # one-time migration from 1.x/2.x data
 Tests need a running MongoDB (v4.4 or later). `.mocharc.yml` requires `test/setup.js`, which forces `NODE_ENV=test`, so every mocha run uses the `uptime-test` database from `config/test.yaml`:
 
 ```sh
-npm test                                            # all suites (make test does the same)
+npm test                                            # all suites
 npx mocha test/unit/check.js                        # single file
 npx mocha test/unit/check.js -g "should update object"   # single test
 ```
