@@ -29,12 +29,29 @@
  *     username: JohnDoe
  *     password: S3cR3t
  */
-var express = require('express');
+var crypto    = require('crypto');
+var basicAuth = require('basic-auth');
+
+// constant-time string comparison
+var safeEqual = function(a, b) {
+  var bufferA = Buffer.from(String(a));
+  var bufferB = Buffer.from(String(b));
+  return bufferA.length === bufferB.length && crypto.timingSafeEqual(bufferA, bufferB);
+};
 
 exports.initWebApp = function(options) {
   var config = options.config.basicAuth;
   options.app.on('beforeFirstRoute', function(app, dashboardApp) {
-    app.use(express.basicAuth(config.username, config.password));
+    app.use(function basicAuthMiddleware(req, res, next) {
+      var credentials = basicAuth.parse(req.headers.authorization || '');
+      if (credentials && safeEqual(credentials.name, config.username) && safeEqual(credentials.pass, config.password)) {
+        req.user = req.remoteUser = credentials.name;
+        return next();
+      }
+      res.statusCode = 401;
+      res.setHeader('WWW-Authenticate', 'Basic realm="Authorization Required"');
+      res.end('Unauthorized');
+    });
   });
 };
 

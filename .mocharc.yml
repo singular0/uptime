@@ -1,0 +1,7 @@
+# Loaded automatically by mocha. The suites are listed in the `test` script of package.json,
+# so that `npx mocha test/unit/check.js` runs a single file.
+require: './test/setup.js'
+reporter: spec
+slow: 20
+# The app keeps timers, sockets and the MongoDB connection open; exit once the suites are done.
+exit: true

@@ -2,51 +2,60 @@
  * Monitor remote server uptime.
  */
 
-var http       = require('http');
-var url        = require('url');
-var express    = require('express');
-var config     = require('config');
-var socketIo   = require('socket.io');
-var fs         = require('fs');
-var monitor    = require('./lib/monitor');
-var analyzer   = require('./lib/analyzer');
-var CheckEvent = require('./models/checkEvent');
-var Ping       = require('./models/ping');
-var PollerCollection = require('./lib/pollers/pollerCollection');
-var apiApp     = require('./app/api/app');
-var dashboardApp = require('./app/dashboard/app');
+const http       = require('http');
+const path       = require('path');
+const fs         = require('fs');
+const express    = require('express');
+const config     = require('config');
+const { Server } = require('socket.io');
+const methodOverride = require('method-override');
+const cookieParser   = require('cookie-parser');
+const cookieSession  = require('cookie-session');
+const errorHandler   = require('errorhandler');
+const analyzer   = require('./lib/analyzer');
+const CheckEvent = require('./models/checkEvent');
+const Ping       = require('./models/ping');
+const PollerCollection = require('./lib/pollers/pollerCollection');
+const apiApp     = require('./app/api/app');
+const dashboardApp = require('./app/dashboard/app');
 
 // database
 
-var mongoose   = require('./bootstrap');
+const mongoose   = require('./bootstrap');
 
-var a = analyzer.createAnalyzer(config.analyzer);
+const a = analyzer.createAnalyzer(config.analyzer);
 a.start();
 
 // web front
 
-var app = module.exports = express();
-var server = http.createServer(app);
+const app = module.exports = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-app.configure(function(){
-  app.use(app.router);
-  // the following middlewares are only necessary for the mounted 'dashboard' app, 
-  // but express needs it on the parent app (?) and it therefore pollutes the api
-  app.use(express.bodyParser());
-  app.use(express.methodOverride());
-  app.use(express.cookieParser('Z5V45V6B5U56B7J5N67J5VTH345GC4G5V4'));
-  app.use(express.cookieSession({
-    key:    'uptime',
-    secret: 'FZ5HEE5YHD3E566756234C45BY4DSFZ4',
-    proxy:  true,
-    cookie: { maxAge: 60 * 60 * 1000 }
-  }));
-  app.set('pollerCollection', new PollerCollection());
-});
+// the following middlewares are only necessary for the mounted 'dashboard' app,
+// but express needs it on the parent app (?) and it therefore pollutes the api
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// HTML forms send PUT and DELETE requests as POST with a _method field, which takes precedence over the header
+app.use(methodOverride('X-HTTP-Method-Override'));
+app.use(methodOverride(function(req) {
+  if (req.body && typeof req.body === 'object' && '_method' in req.body) {
+    const method = req.body._method;
+    delete req.body._method;
+    return method;
+  }
+}));
+app.use(cookieParser('Z5V45V6B5U56B7J5N67J5VTH345GC4G5V4'));
+app.use(cookieSession({
+  name:   'uptime',
+  secret: 'FZ5HEE5YHD3E566756234C45BY4DSFZ4',
+  maxAge: 60 * 60 * 1000
+}));
+app.set('pollerCollection', new PollerCollection());
 
 // load plugins (may add their own routes and middlewares)
 config.plugins.forEach(function(pluginName) {
-  var plugin = require(pluginName);
+  const plugin = require(pluginName);
   if (typeof plugin.initWebApp !== 'function') return;
   console.log('loading plugin %s on app', pluginName);
   plugin.initWebApp({
@@ -61,17 +70,17 @@ config.plugins.forEach(function(pluginName) {
 
 app.emit('beforeFirstRoute', app, apiApp);
 
-app.configure('development', function() {
+if (app.get('env') === 'development') {
   if (config.verbose) mongoose.set('debug', true);
-  app.use(express.static(__dirname + '/public'));
-  app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
-});
+  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(errorHandler());
+}
 
-app.configure('production', function() {
-  var oneYear = 31557600000;
-  app.use(express.static(__dirname + '/public', { maxAge: oneYear }));
-  app.use(express.errorHandler());
-});
+if (app.get('env') === 'production') {
+  const oneYear = 31557600000;
+  app.use(express.static(path.join(__dirname, 'public'), { maxAge: oneYear }));
+  app.use(errorHandler());
+}
 
 // Routes
 app.emit('beforeApiRoutes', app, apiApp);
@@ -90,72 +99,56 @@ app.get('/favicon.ico', function(req, res) {
 app.emit('afterLastRoute', app);
 
 // Sockets
-var io = socketIo.listen(server);
-
-io.configure('production', function() {
-  io.enable('browser client etag');
-  io.set('log level', 1);
-});
-
-io.configure('development', function() {
-  if (!config.verbose) io.set('log level', 1);
-});
-
 CheckEvent.on('afterInsert', function(event) {
-  io.sockets.emit('CheckEvent', event.toJSON());
+  io.emit('CheckEvent', event.toJSON());
 });
 
-io.sockets.on('connection', function(socket) {
+// pings are only sent to the sockets watching the related check (see 'set check')
+Ping.on('afterInsert', function(ping) {
+  io.to('check:' + ping.check).emit('ping', ping.toJSON());
+});
+
+io.on('connection', function(socket) {
   socket.on('set check', function(check) {
-    socket.set('check', check);
-  });
-  Ping.on('afterInsert', function(ping) {
-    socket.get('check', function(err, check) {
-      if (ping.check == check) {
-        socket.emit('ping', ping);
-      }
-    });
+    if (socket.data.check) socket.leave('check:' + socket.data.check);
+    socket.data.check = check;
+    socket.join('check:' + check);
   });
 });
 
 // old way to load plugins, kept for BC
-fs.exists('./plugins/index.js', function(exists) {
-  if (exists) {
-    var pluginIndex = require('./plugins');
-    var initFunction = pluginIndex.init || pluginIndex.initWebApp;
-    if (typeof initFunction === 'function') {
-      initFunction({
-        app:       app,
-        api:       apiApp,       // mounted into app, but required for events
-        dashboard: dashboardApp, // mounted into app, but required for events
-        io:        io,
-        config:    config,
-        mongoose:  mongoose
-      });
-    }
+if (fs.existsSync(path.join(__dirname, 'plugins', 'index.js'))) {
+  const pluginIndex = require('./plugins');
+  const initFunction = pluginIndex.init || pluginIndex.initWebApp;
+  if (typeof initFunction === 'function') {
+    initFunction({
+      app:       app,
+      api:       apiApp,       // mounted into app, but required for events
+      dashboard: dashboardApp, // mounted into app, but required for events
+      io:        io,
+      config:    config,
+      mongoose:  mongoose
+    });
   }
-});
+}
 
 module.exports = app;
 
-var monitorInstance;
+let monitorInstance;
 
-if (!module.parent) {
-  var serverUrl = url.parse(config.url);
-  var port;
+if (require.main === module) {
+  const serverUrl = new URL(config.url);
+  let port;
   if (config.server && config.server.port) {
     console.error('Warning: The server port setting is deprecated, please use the url setting instead');
     port = config.server.port;
   } else {
-    port = serverUrl.port;
-    if (port === null) {
-      port = 80;
-    }
+    port = serverUrl.port || 80;
   }
-  var port = process.env.PORT || port;
-  var host = process.env.HOST || serverUrl.hostname;
+  port = process.env.PORT || port;
+  const host = process.env.HOST || serverUrl.hostname;
   server.listen(port, function(){
-    console.log("Express server listening on host %s, port %d in %s mode", host, port, app.settings.env);
+    console.log("Express server listening on host %s, port %d in %s mode", host, port, app.get('env'));
   });
   server.on('error', function(e) {
     if (monitorInstance) {

@@ -1,5 +1,4 @@
-var config   = require('config').mongodb;
-var mongoose = require('mongoose');
+var mongoose = require('../bootstrap');
 var Schema   = mongoose.Schema;
 
 var CheckEvent = new Schema({
@@ -15,19 +14,14 @@ var CheckEvent = new Schema({
 
 mongoose.model('CheckEvent', CheckEvent);
 
-mongoose.connect('mongodb://' + config.user + ':' + config.password + '@' + config.server +'/' + config.database);
-mongoose.connection.on('error', function (err) {
-  console.error('MongoDB error: ' + err.message);
-  console.error('Make sure a mongoDB server is running and accessible by this application')
-});
-
 var Event = mongoose.model('CheckEvent');
-Event.find({ message: { $exists: false }}).each(function(err, event) {
-  if (err) {
-    console.log(err.message);
-    return;
+(async function() {
+  for await (var event of Event.find({ message: { $exists: false }}).cursor()) {
+    event.message = event.isGoDown ? 'down' : 'up';
+    await event.save();
   }
-  if (!event) process.exit();
-  event.message = event.isGoDown ? 'down' : 'up';
-  event.save();
+})().catch(function(err) {
+  console.log(err.message);
+}).finally(function() {
+  process.exit();
 });

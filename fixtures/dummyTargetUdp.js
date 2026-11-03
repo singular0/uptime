@@ -9,7 +9,7 @@ server.on("message", function (msg, rinfo) {
   console.log("server got message:  from " + rinfo.address + ":" + rinfo.port);
   console.dir(msg);
 
-  var pong = new Buffer(JSON.stringify({'command': 'pong'}));
+  var pong = Buffer.from(JSON.stringify({'command': 'pong'}));
   server.send(pong, 0, pong.length, rinfo.port, rinfo.address, function () {
     console.log('sent message to ' + rinfo.address + ':' + rinfo.port);
   });

@@ -14,6 +14,6 @@ var TagMonthlyStat = new Schema({
   outages        : Array,
 });
 TagMonthlyStat.index({ name: 1, timestamp: -1 }, { unique: true });
-TagMonthlyStat.plugin(require('mongoose-lifecycle'));
+TagMonthlyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('TagMonthlyStat', TagMonthlyStat);

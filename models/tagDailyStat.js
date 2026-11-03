@@ -13,6 +13,6 @@ var TagDailyStat = new Schema({
   outages        : Array,
 });
 TagDailyStat.index({ name: 1, timestamp: -1 }, { unique: true });
-TagDailyStat.plugin(require('mongoose-lifecycle'));
+TagDailyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('TagDailyStat', TagDailyStat);

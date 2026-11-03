@@ -1,6 +1,18 @@
 Uptime Changelog
 ================
 
+2026-11-03, v4.0
+----------------
+
+* Node 26 support: require Node.js 26+ and MongoDB 4.4+, and upgrade all dependencies to their latest versions (Mongoose 9, Express 5, socket.io 4, EJS 7, node-config 5, nodemailer 10, js-yaml 5, Mocha 12)
+* Model methods, the QoS aggregator and the interval builder now return promises instead of taking callbacks (warning: changes the signature of methods used by plugins, e.g. `checkEvent.findCheck()`)
+* Replace the unmaintained mongoose-lifecycle and connect-flash packages with local equivalents (same events and API)
+* Poll queries use `$expr` instead of server-side JavaScript (`$where` is deprecated since MongoDB 8)
+* Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed
+* Fix relative redirects in HTTP and HTTPS pollers (now resolved against the current URL, port and protocol included)
+* Fix plugins receiving an undefined socket.io instance in `initWebApp()`
+* `npm test` now runs all test suites against the `uptime-test` database
+
 To be released
 --------------
 

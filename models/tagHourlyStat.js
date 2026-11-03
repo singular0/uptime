@@ -13,6 +13,6 @@ var TagHourlyStat = new Schema({
   outages        : Array,
 });
 TagHourlyStat.index({ name: 1, timestamp: -1 }, { unique: true });
-TagHourlyStat.plugin(require('mongoose-lifecycle'));
+TagHourlyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('TagHourlyStat', TagHourlyStat);

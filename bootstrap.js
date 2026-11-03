@@ -1,36 +1,37 @@
-var mongoose   = require('mongoose');
-var config     = require('config');
-var semver     = require('semver');
+const mongoose = require('mongoose');
+const config   = require('config');
+const semver   = require('semver');
 
-// configure mongodb
-mongoose.connect(config.mongodb.connectionString || 'mongodb://' + config.mongodb.user + ':' + config.mongodb.password + '@' + config.mongodb.server +'/' + config.mongodb.database);
-mongoose.connection.on('error', function (err) {
+const MIN_MONGODB_VERSION = '4.4.0'; // oldest server supported by the MongoDB Node.js driver
+
+const buildConnectionString = function(options) {
+  if (options.connectionString) return options.connectionString;
+  // credentials are only sent when both user and password are set (an empty password means no authentication)
+  const credentials = options.user && options.password
+    ? encodeURIComponent(options.user) + ':' + encodeURIComponent(options.password) + '@'
+    : '';
+  return 'mongodb://' + credentials + options.server + '/' + options.database;
+};
+
+const exitOnError = function(err) {
   console.error('MongoDB error: ' + err.message);
   console.error('Make sure a mongoDB server is running and accessible by this application');
   process.exit(1);
-});
-mongoose.connection.on('open', function (err) {
-  mongoose.connection.db.admin().serverStatus(function(err, data) {
-    if (err) {
-      if (err.name === "MongoError" && (err.errmsg === 'need to login' || err.errmsg === 'unauthorized') && !config.mongodb.connectionString) {
-        console.log('Forcing MongoDB authentication');
-        mongoose.connection.db.authenticate(config.mongodb.user, config.mongodb.password, function(err) {
-          if (!err) return;
-          console.error(err);
-          process.exit(1);
-        });
-        return;
-      } else {
-        console.error(err);
-        process.exit(1);
-      }
-    }
-    if (!semver.satisfies(data.version, '>=2.1.0')) {
-      console.error('Error: Uptime requires MongoDB v2.1 minimum. The current MongoDB server uses only '+ data.version);
+};
+
+// configure mongodb
+mongoose.connection.on('error', exitOnError);
+mongoose.connection.on('open', async function() {
+  try {
+    const info = await mongoose.connection.db.admin().buildInfo();
+    if (!semver.satisfies(semver.coerce(info.version), '>=' + MIN_MONGODB_VERSION)) {
+      console.error('Error: Uptime requires MongoDB v' + MIN_MONGODB_VERSION + ' minimum. The current MongoDB server uses only ' + info.version);
       process.exit(1);
     }
-  });
+  } catch (err) {
+    exitOnError(err);
+  }
 });
-
+mongoose.connect(buildConnectionString(config.mongodb)).catch(exitOnError);
 
 module.exports = mongoose;

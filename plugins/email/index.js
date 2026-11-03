@@ -34,7 +34,7 @@
  *   // in config/production.yaml
  *   email:
  *     method:      SMTP  # possible methods are SMTP, SES, or Sendmail
- *     transport:         # see https://github.com/andris9/nodemailer for transport options
+ *     transport:         # see https://nodemailer.com/smtp/ for transport options
  *       service:   Gmail
  *       auth:            
  *         user:    foobar@gmail.com
@@ -48,6 +48,13 @@
  *       from:     'Fred Foo <foo@blurdybloop.com>'
  *       to:       'bar@blurdybloop.com, baz@blurdybloop.com'
  *     # The email plugin also uses the main `url` param for hyperlinks in the sent emails
+ *
+ * With the Sendmail method, `transport` holds the sendmail options (e.g. `path`),
+ * see https://nodemailer.com/transports/sendmail/.
+ *
+ * The SES method requires the AWS SDK (`npm install @aws-sdk/client-sesv2`),
+ * and `transport` holds the SESv2Client options (e.g. `region` and `credentials`),
+ * see https://nodemailer.com/transports/ses/.
  */
 var fs         = require('fs');
 var nodemailer = require('nodemailer');
@@ -55,23 +62,36 @@ var moment     = require('moment');
 var CheckEvent = require('../../models/checkEvent');
 var ejs        = require('ejs');
 
+var createMailer = function(config) {
+  switch (String(config.method || 'SMTP').toUpperCase()) {
+    case 'SENDMAIL':
+      var sendmailOptions = typeof config.transport === 'string' ? { path: config.transport } : config.transport;
+      return nodemailer.createTransport(Object.assign({ sendmail: true }, sendmailOptions));
+    case 'SES':
+      var ses = require('@aws-sdk/client-sesv2');
+      return nodemailer.createTransport({
+        SES: { sesClient: new ses.SESv2Client(config.transport || {}), SendEmailCommand: ses.SendEmailCommand }
+      });
+    default:
+      return nodemailer.createTransport(config.transport);
+  }
+};
+
 exports.initWebApp = function(options) {
   var config = options.config.email;
-  var mailer = nodemailer.createTransport(config.method, config.transport);
+  var mailer = createMailer(config);
   var templateDir = __dirname + '/views/';
   CheckEvent.on('afterInsert', function(checkEvent) {
     if (!config.event[checkEvent.message]) return;
-    checkEvent.findCheck(function(err, check) {
-      if (err) return console.error(err);
+    checkEvent.findCheck().then(function(check) {
       var filename = templateDir + checkEvent.message + '.ejs';
-      var renderOptions = {
+      var data = {
         check: check,
         checkEvent: checkEvent,
         url: options.config.url,
-        moment: moment,
-        filename: filename
+        moment: moment
       };
-      var lines = ejs.render(fs.readFileSync(filename, 'utf8'), renderOptions).split('\n');
+      var lines = ejs.render(fs.readFileSync(filename, 'utf8'), data, { filename: filename }).split('\n');
       var mailOptions = {
         from:    config.message.from,
         to:      config.message.to,
@@ -82,7 +102,7 @@ exports.initWebApp = function(options) {
         if (err2) return console.error('Email plugin error: %s', err2);
         console.log('Notified event by email: Check ' + check.name + ' ' + checkEvent.message);
       });
-    });
+    }).catch(function(err) { console.error(err); });
   });
   console.log('Enabled Email notifications');
 };

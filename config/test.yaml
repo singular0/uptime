@@ -2,3 +2,4 @@ mongodb:
   server:   localhost
   database: uptime-test
   user:     root
+autoStartMonitor: false # tests must never poll a running instance

@@ -14,23 +14,23 @@ describe('GET /checks', function() {
     this.server = app.listen(3000, done);
   });
 
-  before(function(done) {
-    Check.remove({}, done);
+  before(function() {
+    return Check.deleteMany({});
   });
 
-  before(function(done) {
+  before(function() {
     check1 = new Check();
     check1.url = 'http://www.url1.fr';
     check1.name = 'name1';
     check1.isPaused = false;
-    check1.save(done);
+    return check1.save();
   });
 
-  before(function(done) {
+  before(function() {
     check2 = new Check();
     check2.url = 'http://www.url2.fr';
     check2.isPaused = false;
-    check2.save(done);
+    return check2.save();
   });
 
   it('should fetch all elements', function(done) {
@@ -65,8 +65,8 @@ describe('GET /checks', function() {
     });
   });
 
-  after(function(done) {
-    Check.remove({}, done);
+  after(function() {
+    return Check.deleteMany({});
   });
 
   after(function(done) {
@@ -108,12 +108,12 @@ describe('PUT /checks', function() {
       });
       res.on('end', function() {
         var object = JSON.parse(body);
-        Check.findOne({ _id : object._id }, function(error, document) {
-          if (error) {return done(new Error('Error, object not found'))}
-          assert.notEqual(typeof(document), 'undefined');
-          assert.notEqual(typeof(error), null);
+        Check.findOne({ _id : object._id }).then(function(document) {
+          assert.notEqual(document, null);
           assert.equal(document.name, 'test');
           done();
+        }, function(error) {
+          done(new Error('Error, object not found'));
         });
       });
     });
@@ -205,8 +205,8 @@ describe('PUT /checks', function() {
     req.end();
   });
 
-  after(function(done) {
-    Check.remove({}, done);
+  after(function() {
+    return Check.deleteMany({});
   });
 
   after(function(done) {
@@ -223,19 +223,19 @@ describe('POST /checks/:id', function() {
     this.server = app.listen(3000, done);
   });
 
-  before(function(done) {
+  before(function() {
     check1 = new Check();
     check1.url = 'http://www.url1.fr';
     check1.name = 'name1';
     check1.isPaused = false;
-    check1.save(done);
+    return check1.save();
   });
 
-  before(function(done) {
+  before(function() {
     check2 = new Check();
     check2.url = 'http://www.url2.fr';
     check2.isPaused = false;
-    check2.save(done);
+    return check2.save();
   });
 
   it('should return error if id parameter does not exists', function(done) {
@@ -361,8 +361,8 @@ describe('POST /checks/:id', function() {
     req.end();
   });
 
-  after(function(done) {
-    Check.remove({}, done);
+  after(function() {
+    return Check.deleteMany({});
   });
 
   after(function(done) {

@@ -13,6 +13,6 @@ var CheckDailyStat = new Schema({
   outages        : Array
 });
 CheckDailyStat.index({ check: 1, timestamp: -1 }, { unique: true });
-CheckDailyStat.plugin(require('mongoose-lifecycle'));
+CheckDailyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('CheckDailyStat', CheckDailyStat);

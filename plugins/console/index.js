@@ -24,7 +24,7 @@ exports.initWebApp = function(enableNewEvents, enableNewPings) {
 
 var registerNewEventsLogger = function() {
   CheckEvent.on('afterInsert', function(checkEvent) {
-    checkEvent.findCheck(function(err, check) {
+    checkEvent.findCheck().then(function(check) {
       var messageColor;
       var message = check.name + ' ';
       switch (checkEvent.message) {
@@ -51,17 +51,17 @@ var registerNewEventsLogger = function() {
       }
 
       console.log(timestamp() + color(message, messageColor));
-    });
+    }).catch(function(err) { console.error(err); });
   });
 };
 
 var registerNewPingsLogger = function() {
   Ping.on('afterInsert', function(ping) {
-    ping.findCheck(function(err, check) {
+    ping.findCheck().then(function(check) {
       var message = check.name + ' ';
       message += (ping.isUp) ? color('OK', 'green') : color('responded with error "' + ping.error + '"', 'red');
       console.log(timestamp() + message);
-    });
+    }).catch(function(err) { console.error(err); });
   });
 };
 

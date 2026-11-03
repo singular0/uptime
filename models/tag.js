@@ -1,21 +1,20 @@
-var mongoose = require('mongoose');
-var Schema   = mongoose.Schema;
-var moment   = require('moment');
-var async    = require('async');
+const mongoose = require('mongoose');
+const Schema   = mongoose.Schema;
+const moment   = require('moment');
 
 // model dependencies
-var TagHourlyStat    = require('./tagHourlyStat');
-var TagDailyStat     = require('./tagDailyStat');
-var TagMonthlyStat   = require('./tagMonthlyStat');
-var TagYearlyStat    = require('./tagYearlyStat');
-var Check            = require('./check');
-var CheckHourlyStat  = require('./checkHourlyStat');
-var CheckDailyStat   = require('./checkDailyStat');
-var CheckMonthlyStat = require('./checkMonthlyStat');
-var CheckYearlyStat  = require('./checkYearlyStat');
+const TagHourlyStat    = require('./tagHourlyStat');
+const TagDailyStat     = require('./tagDailyStat');
+const TagMonthlyStat   = require('./tagMonthlyStat');
+const TagYearlyStat    = require('./tagYearlyStat');
+const CheckHourlyStat  = require('./checkHourlyStat');
+const CheckDailyStat   = require('./checkDailyStat');
+const CheckMonthlyStat = require('./checkMonthlyStat');
+const CheckYearlyStat  = require('./checkYearlyStat');
+require('./check'); // registers the Check model; required again lazily below, as it requires this module
 
 // main model
-var Tag = new Schema({
+const Tag = new Schema({
   name           : String,
   firstTested    : Date,
   lastUpdated    : Date,
@@ -27,54 +26,48 @@ var Tag = new Schema({
   outages        : Array,
 });
 Tag.index({ name: 1 }, { unique: true });
-Tag.plugin(require('mongoose-lifecycle'));
+Tag.plugin(require('./plugins/lifecycle'));
 
-Tag.pre('remove', function(next) {
-  this.removeStats(function() {
-    next();
-  });
+Tag.pre('deleteOne', { document: true, query: false }, async function() {
+  // stats removal is best effort and never prevents the tag deletion
+  await this.removeStats().catch(function() {});
 });
 
-Tag.methods.removeStats = function(callback) {
-  var self = this;
-  async.parallel([
-    function(cb) { TagHourlyStat.remove({ name: self.name }, cb); },
-    function(cb) { TagDailyStat.remove({ name: self.name }, cb); },
-    function(cb) { TagMonthlyStat.remove({ name: self.name }, cb); }
-  ], callback);
+Tag.methods.removeStats = function() {
+  return Promise.all([
+    TagHourlyStat.deleteMany({ name: this.name }),
+    TagDailyStat.deleteMany({ name: this.name }),
+    TagMonthlyStat.deleteMany({ name: this.name })
+  ]);
 };
 
-Tag.methods.getChecks = function(callback) {
-  var Check   = require('./check');
-  Check.find({ tags: this.name }, callback);
+Tag.methods.getChecks = function() {
+  const Check = require('./check');
+  return Check.find({ tags: this.name });
 };
 
-Tag.methods.getFirstTested = function(callback) {
-  var firstTested = Infinity;
-  this.getChecks(function(err, checks) {
-    checks.forEach(function(check) {
-      if (!check.firstTested) return;
-      firstTested = Math.min(firstTested, check.firstTested);
-    });
-    callback(err, firstTested);
+Tag.methods.getFirstTested = async function() {
+  let firstTested = Infinity;
+  const checks = await this.getChecks();
+  checks.forEach(function(check) {
+    if (!check.firstTested) return;
+    firstTested = Math.min(firstTested, check.firstTested);
   });
+  return firstTested;
 };
 
-var statProvider = {
+const statProvider = {
   'day':   { model: 'TagHourlyStat', duration: 60 * 60 * 1000 },
   'month': { model: 'TagDailyStat', duration: 24 * 60 * 60 * 1000 },
   'year':  { model: 'TagMonthlyStat' }
 };
 
-Tag.methods.getStatsForPeriod = function(period, begin, end, callback) {
-  var periodPrefs = statProvider[period];
-  var stats = [];
-  var query = { name: this.name, timestamp: { $gte: begin, $lte: end } };
-  var stream = this.db.model(periodPrefs['model']).find(query).sort({ timestamp: -1 }).stream();
-  stream.on('error', function(err) {
-    callback(err);
-  }).on('data', function(stat) {
-    stats.push({
+Tag.methods.getStatsForPeriod = async function(period, begin, end) {
+  const periodPrefs = statProvider[period];
+  const query = { name: this.name, timestamp: { $gte: begin, $lte: end } };
+  const stats = await this.db.model(periodPrefs['model']).find(query).sort({ timestamp: -1 });
+  return stats.map(function(stat) {
+    return {
       timestamp: Date.parse(stat.timestamp),
       availability: (stat.availability * 100).toFixed(3),
       responsiveness: (stat.responsiveness * 100).toFixed(3),
@@ -82,112 +75,90 @@ Tag.methods.getStatsForPeriod = function(period, begin, end, callback) {
       responseTime: parseInt(stat.responseTime),
       outages: stat.outages || [],
       end: stat.end ? stat.end.valueOf() : (Date.parse(stat.timestamp) + periodPrefs['duration'])
-    });
-  }).on('close', function() {
-    callback(null, stats);
+    };
   });
 };
 
-var singleStatsProvider = {
+const singleStatsProvider = {
   'hour':  'TagHourlyStat',
   'day':   'TagDailyStat',
   'month': 'TagMonthlyStat',
   'year':  'TagYearlyStat'
 };
 
-Tag.methods.getSingleStatsForPeriod = function(period, date, callback) {
-  var model = singleStatsProvider[period];
-  var begin = moment(date).clone().startOf(period).toDate();
-  var end   = moment(date).clone().startOf(period).toDate();
-  var query = { name: this.name, timestamp: { $gte: begin, $lte: end } };
-  this.db.model(model).findOne(query, function(err, stat) {
-    if (err || !stat) return callback(err);
-    return callback(null, {
-      timestamp: Date.parse(stat.timestamp),
-      availability: (stat.availability * 100).toFixed(3),
-      responsiveness: (stat.responsiveness * 100).toFixed(3),
-      downtime: stat.downtime / 1000,
-      responseTime: Math.round(stat.responseTime),
-      outages: stat.outages || [],
-      begin: begin.valueOf(),
-      end: end.valueOf()
-    })
-  });
+Tag.methods.getSingleStatsForPeriod = async function(period, date) {
+  const model = singleStatsProvider[period];
+  const begin = moment(date).clone().startOf(period).toDate();
+  const end   = moment(date).clone().startOf(period).toDate();
+  const query = { name: this.name, timestamp: { $gte: begin, $lte: end } };
+  const stat = await this.db.model(model).findOne(query);
+  if (!stat) return;
+  return {
+    timestamp: Date.parse(stat.timestamp),
+    availability: (stat.availability * 100).toFixed(3),
+    responsiveness: (stat.responsiveness * 100).toFixed(3),
+    downtime: stat.downtime / 1000,
+    responseTime: Math.round(stat.responseTime),
+    outages: stat.outages || [],
+    begin: begin.valueOf(),
+    end: end.valueOf()
+  };
 };
 
-var checkProvider = {
+const checkProvider = {
   'hour':  { model: 'CheckHourlyStat', duration: 60 * 60 * 1000 },
   'day':   { model: 'CheckDailyStat', duration: 24 * 60 * 60 * 1000 },
   'month': { model: 'CheckMonthlyStat' },
   'year':  { model: 'CheckYearlyStat'}
 };
 
-Tag.methods.getChecksForPeriod = function(period, date, callback) {
-  var periodPrefs = checkProvider[period];
-  var stats = {};
-  var checkNames = [];
-  var begin = moment(date).clone().startOf(period).toDate();
-  var end   = moment(date).clone().endOf(period).toDate();
-  var self = this;
-  this.db.model('Check').find({ tags: this.name }).select('_id').exec(function(err, res) {
-    if (err) return callback(err);
-    var ids = [];
-    res.forEach(function(doc) {
-      ids.push(doc._id);
-    });
-    var query = { check: { $in: ids }, timestamp: { $gte: begin, $lte: end } };
-    var stream = self.db.model(periodPrefs['model']).find(query).populate('check').stream();
-    stream
-    .on('error', callback)
-    .on('data', function(stat) {
-      stats[stat.check.name] = {
-        timestamp: Date.parse(stat.timestamp),
-        availability: (stat.availability * 100).toFixed(3),
-        responsiveness: (stat.responsiveness * 100).toFixed(3),
-        downtime: parseInt(stat.downtime / 1000),
-        responseTime: parseInt(stat.responseTime),
-        outages: stat.outages || [],
-        end: stat.end ? stat.end.valueOf() : (Date.parse(stat.timestamp) + periodPrefs['duration']),
-        check: stat.check
-      };
-      checkNames.push(stat.check.name);
-    })
-    .on('close', function() {
-      var orderedStats = [];
-      checkNames.sort();
-      checkNames.forEach(function(checkName) {
-        orderedStats.push(stats[checkName]);
-      });
-      callback(null, orderedStats);
-    });
+Tag.methods.getChecksForPeriod = async function(period, date) {
+  const periodPrefs = checkProvider[period];
+  const stats = {};
+  const checkNames = [];
+  const begin = moment(date).clone().startOf(period).toDate();
+  const end   = moment(date).clone().endOf(period).toDate();
+  const checks = await this.db.model('Check').find({ tags: this.name }).select('_id');
+  const ids = checks.map(function(doc) { return doc._id; });
+  const query = { check: { $in: ids }, timestamp: { $gte: begin, $lte: end } };
+  const checkStats = await this.db.model(periodPrefs['model']).find(query).populate('check');
+  checkStats.forEach(function(stat) {
+    stats[stat.check.name] = {
+      timestamp: Date.parse(stat.timestamp),
+      availability: (stat.availability * 100).toFixed(3),
+      responsiveness: (stat.responsiveness * 100).toFixed(3),
+      downtime: parseInt(stat.downtime / 1000),
+      responseTime: parseInt(stat.responseTime),
+      outages: stat.outages || [],
+      end: stat.end ? stat.end.valueOf() : (Date.parse(stat.timestamp) + periodPrefs['duration']),
+      check: stat.check
+    };
+    checkNames.push(stat.check.name);
+  });
+  checkNames.sort();
+  return checkNames.map(function(checkName) {
+    return stats[checkName];
   });
 };
 
-Tag.statics.ensureTagsHaveFirstTestedDate = function(callback) {
-  this.find({ firstTested: { $exists: false }}, function(err, tags) {
-    if (err || !tags) return callback(err);
-    async.forEach(tags, function(tag, next) {
-      tag.getFirstTested(function(err2, firstTested) {
-        if (err2 || firstTested == Infinity) return callback(err2);
-        tag.firstTested = firstTested;
-        tag.save(next);
-      });
-    }, callback);
-  });
+Tag.statics.ensureTagsHaveFirstTestedDate = async function() {
+  const tags = await this.find({ firstTested: { $exists: false } });
+  await Promise.all(tags.map(async function(tag) {
+    const firstTested = await tag.getFirstTested();
+    if (firstTested == Infinity) return; // no check of this tag was tested yet
+    tag.firstTested = firstTested;
+    await tag.save();
+  }));
 };
 
-Tag.statics.removeOrphanTags = function(callback) {
-  var Check = require('./check');
-  this.find(function(err1, tags1) {
-    if (err1) return callback(err1);
-    Check.getAllTags(function(err2, tags2) {
-      if (err2) return callback(err2);
-      async.forEach(tags1, function(tag, next) {
-        if (tags2.indexOf(tag.name) !== -1) return next();
-        tag.remove(next);
-      }, callback);
-    });
-  });
+Tag.statics.removeOrphanTags = async function() {
+  const Check = require('./check');
+  const tags = await this.find();
+  const usedTags = await Check.getAllTags();
+  await Promise.all(tags.map(function(tag) {
+    if (usedTags.indexOf(tag.name) !== -1) return;
+    return tag.deleteOne();
+  }));
 };
 
 module.exports = mongoose.model('Tag', Tag);

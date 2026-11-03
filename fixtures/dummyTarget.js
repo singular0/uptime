@@ -3,12 +3,11 @@
  */
 
 var http = require('http');
-var url  = require('url');
 
 http.createServer(function(req, res) {
   var message = new Date() + ' Request: ' + req.url + ' ';
   var duration = Math.random() * 1000;
-  var arg = url.parse(req.url).pathname.substr(1);
+  var arg = new URL(req.url, 'http://localhost').pathname.substr(1);
   var chanceToGetOkResponse = parseFloat(arg) / 100;
   if (!chanceToGetOkResponse || Math.random() > chanceToGetOkResponse) {
     console.log(message + 'Responding NOK in ' + parseInt(duration, 10) + 'ms');

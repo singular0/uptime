@@ -13,6 +13,6 @@ var CheckHourlyStat = new Schema({
   outages        : Array
 });
 CheckHourlyStat.index({ check: 1, timestamp: -1 }, { unique: true });
-CheckHourlyStat.plugin(require('mongoose-lifecycle'));
+CheckHourlyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('CheckHourlyStat', CheckHourlyStat);

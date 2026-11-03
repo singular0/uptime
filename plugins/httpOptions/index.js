@@ -43,10 +43,10 @@ exports.initWebApp = function(options) {
     if (!dirtyCheck.http_options) return;
     var http_options = dirtyCheck.http_options;
     try {
-      var options = yaml.safeLoad(dirtyCheck.http_options);
+      var options = yaml.load(dirtyCheck.http_options);
       checkDocument.setPollerParam('http_options', options);
     } catch (e) {
-      if (e instanceof YAMLException) {
+      if (e instanceof yaml.YAMLException) {
         throw new Error('Malformed YAML configuration ' + dirtyCheck.http_options);
       } else throw e;
     }
@@ -58,15 +58,15 @@ exports.initWebApp = function(options) {
     var options = check.getPollerParam('http_options');
     if (options) {
       try {
-        options = yaml.safeDump(options);
+        options = yaml.dump(options);
       } catch (e) {
-        if (e instanceof YAMLException) {
+        if (e instanceof yaml.YAMLException) {
           throw new Error('Malformed HTTP options');
         } else throw e;
       }
       check.setPollerParam('http_options', options);
     }
-    partial.push(ejs.render(template, { locals: { check: check } }));
+    partial.push(ejs.render(template, { check: check }));
   });
 
   options.app.use(express.static(__dirname + '/public'));

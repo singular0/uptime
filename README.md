@@ -33,7 +33,7 @@ Features
 Installing Uptime
 -----------------
 
-Uptime 3.2 requires Node.js 0.10 and MongoDB 2.1. Older versions provide compatibility with Node 0.8 (Uptime v3.1) and 0.6 (Uptime v1.4).
+Uptime requires Node.js 26 or later, and MongoDB 4.4 or later. The 3.2 release supports Node.js 0.10 and MongoDB 2.1; older releases provide compatibility with Node 0.8 (Uptime v3.1) and 0.6 (Uptime v1.4).
 
 To install from GitHub, clone the repository and install dependencies using `npm`:
 
@@ -200,15 +200,15 @@ For instance, if you had to recreate a simple version of the `console` plugin, y
 ```js
 // in plugins/console/index.js
 var CheckEvent = require('../../models/checkEvent');
-exports.initWebapp = function() {
+exports.initWebApp = function() {
   CheckEvent.on('afterInsert', function(checkEvent) {
-    checkEvent.findCheck(function(err, check) {
-      console.log(new Date() + check.name + checkEvent.isGoDown ? ' goes down' : ' goes back up');
-    });
+    checkEvent.findCheck().then(function(check) {
+      console.log(new Date() + ' ' + check.name + ' ' + checkEvent.message);
+    }).catch(console.error);
   });
 }
 ```
-All Uptime entities emit lifecycle events that you can listen to on the Model class. These events are `beforeInsert`, `afterInsert`, `beforeUpdate`, `afterUpdate`, `beforeSave` (called for both inserts and updates), `afterSave` (called for both inserts and updates), `beforeRemove`, and `afterRemove`. For more information about these events, check the [mongoose-lifecycle](https://github.com/fzaninotto/mongoose-lifecycle) plugin.
+Uptime entities are [Mongoose](https://mongoosejs.com/) models, so their methods return promises (callbacks are not supported). All Uptime entities emit lifecycle events that you can listen to on the Model class. These events are `beforeInsert`, `afterInsert`, `beforeUpdate`, `afterUpdate`, `beforeSave` (called for both inserts and updates), `afterSave` (called for both inserts and updates), `beforeRemove`, and `afterRemove` (called on `document.deleteOne()`). For more information about these events, check the [lifecycle plugin](https://github.com/fzaninotto/uptime/blob/master/models/plugins/lifecycle.js).
 
 API
 ---------------

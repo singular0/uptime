@@ -14,6 +14,6 @@ var CheckYearlyStat = new Schema({
   outages        : Array
 });
 CheckYearlyStat.index({ check: 1, timestamp: -1 }, { unique: true });
-CheckYearlyStat.plugin(require('mongoose-lifecycle'));
+CheckYearlyStat.plugin(require('./plugins/lifecycle'));
 
 module.exports = mongoose.model('CheckYearlyStat', CheckYearlyStat);

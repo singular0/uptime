@@ -1,19 +1,18 @@
-var mongoose = require('mongoose');
-var Schema   = mongoose.Schema;
-var moment   = require('moment');
-var async    = require('async');
+const mongoose = require('mongoose');
+const Schema   = mongoose.Schema;
+const moment   = require('moment');
 
 // models dependencies
-var Ping             = require('../models/ping');
-var CheckEvent       = require('../models/checkEvent');
-var CheckHourlyStat  = require('../models/checkHourlyStat');
-var CheckDailyStat   = require('../models/checkDailyStat');
-var CheckMonthlyStat = require('../models/checkMonthlyStat');
-var CheckYearlyStat  = require('../models/checkYearlyStat');
-var Tag              = require('../models/tag');
+const Ping             = require('../models/ping');
+const CheckEvent       = require('../models/checkEvent');
+const CheckHourlyStat  = require('../models/checkHourlyStat');
+const CheckDailyStat   = require('../models/checkDailyStat');
+const CheckMonthlyStat = require('../models/checkMonthlyStat');
+const CheckYearlyStat  = require('../models/checkYearlyStat');
+const Tag              = require('../models/tag');
 
 // main model
-var Check = new Schema({
+const Check = new Schema({
   name        : String,
   type        : String,
   url         : String,
@@ -32,12 +31,11 @@ var Check = new Schema({
   qos         : {},
   pollerParams : Schema.Types.Mixed
 });
-Check.plugin(require('mongoose-lifecycle'));
+Check.plugin(require('./plugins/lifecycle'));
 
-Check.pre('remove', function(next) {
-  async.parallel([this.removePings.bind(this), this.removeEvents.bind(this), this.removeStats.bind(this)], function() {
-    next();
-  });
+Check.pre('deleteOne', { document: true, query: false }, async function() {
+  // related data removal is best effort and never prevents the check deletion
+  await Promise.allSettled([this.removePings(), this.removeEvents(), this.removeStats()]);
 });
 
 Check.methods.setPollerParam = function(name, value) {
@@ -51,28 +49,27 @@ Check.methods.getPollerParam = function(name) {
   return this.pollerParams[name];
 };
 
-Check.methods.removePings = function(callback) {
-  Ping.remove({ check: this._id }, callback);
+Check.methods.removePings = function() {
+  return Ping.deleteMany({ check: this._id });
 };
 
-Check.methods.removeEvents = function(callback) {
-  CheckEvent.remove({ check: this._id }, callback);
+Check.methods.removeEvents = function() {
+  return CheckEvent.deleteMany({ check: this._id });
 };
 
-Check.methods.removeStats = function(callback) {
-  var self = this;
-  async.parallel([
-    function(cb) { CheckHourlyStat.remove({ check: self._id }, cb); },
-    function(cb) { CheckDailyStat.remove({ check: self._id }, cb); },
-    function(cb) { CheckMonthlyStat.remove({ check: self._id }, cb); },
-    function(cb) { CheckYearlyStat.remove({ check: self._id }, cb); }
-  ], callback);
+Check.methods.removeStats = function() {
+  return Promise.all([
+    CheckHourlyStat.deleteMany({ check: this._id }),
+    CheckDailyStat.deleteMany({ check: this._id }),
+    CheckMonthlyStat.deleteMany({ check: this._id }),
+    CheckYearlyStat.deleteMany({ check: this._id })
+  ]);
 };
 
 Check.methods.needsPoll = function() {
   if (this.isPaused) return false;
   if (!this.firstTested) return true;
-  var delay = (this.lastTested.getTime() - this.firstTested.getTime()) % this.interval;
+  const delay = (this.lastTested.getTime() - this.firstTested.getTime()) % this.interval;
   return (Date.now() - this.lastTested.getTime() + delay) >= (this.interval || 60000);
 };
 
@@ -86,8 +83,8 @@ Check.methods.togglePause = function() {
 };
 
 Check.methods.setLastTest = function(status, time, error) {
-  var now = time ? new Date(time) : new Date();
-  var mustNotifyEvent = this.mustNotifyEvent(status);
+  const now = time ? new Date(time) : new Date();
+  const mustNotifyEvent = this.mustNotifyEvent(status);
 
   if (!this.firstTested) {
     this.firstTested = now;
@@ -103,9 +100,9 @@ Check.methods.setLastTest = function(status, time, error) {
   }
 
   if (mustNotifyEvent) {
-    var event = new CheckEvent({
+    const event = new CheckEvent({
       timestamp: now,
-      check: this,
+      check: this._id,
       tags: this.tags,
       message: status ? 'up' : 'down',
       details: error
@@ -114,10 +111,11 @@ Check.methods.setLastTest = function(status, time, error) {
       // Check comes back up
       event.downtime = now.getTime() - this.lastChanged.getTime();
     }
-    event.save();
+    // errors are logged and never reject, see Ping.createForCheck()
+    this.$locals.lastEventSave = event.save().catch(function(err) { console.error(err); });
     this.markEventNotified();
   }
-  var durationSinceLastChange = now.getTime() - this.lastChanged.getTime();
+  const durationSinceLastChange = now.getTime() - this.lastChanged.getTime();
   if (status) {
     this.uptime = durationSinceLastChange;
   } else {
@@ -167,151 +165,82 @@ Check.methods.getQosPercentage = function() {
   return (this.qos.ups / this.qos.count) * 100;
 };
 
-Check.methods.updateUptime = function(callback) {
-  var self = this;
-  Ping
-  .findOne()
-  .where('check', self)
-  .sort({ timestamp: -1 })
-  .exec(function(err, latestPing) {
-    if (err) return callback(err);
-    if (!latestPing) return;
-    self.lastTested = latestPing.timestamp;
-    self.isUp = latestPing.isUp;
-    if (latestPing.isUp) {
-      // check is up
-      // lastChanged is the latest down ping
-      self.downtime = 0;
-      Ping
-      .findOne()
-      .where('check', self)
-      .where('isUp', false)
-      .where('timestamp').lt(latestPing.timestamp)
-      .sort({ timestamp: -1 })
-      .exec(function(err, latestDownPing) {
-        if (err) return callback(err);
-        if (latestDownPing) {
-          self.lastChanged = latestDownPing.timestamp;
-          self.uptime = latestPing.timestamp.getTime() - latestDownPing.timestamp.getTime();
-          self.save(callback);
-        } else {
-          // check never went down, last changed is the date of the first ping
-          Ping
-          .findOne()
-          .where('check', self)
-          .sort({ timestamp: 1 })
-          .exec(function(err, firstPing) {
-            if (err) return callback(err);
-            self.lastChanged = firstPing.timestamp;
-            self.uptime = latestPing.timestamp.getTime() - firstPing.timestamp.getTime();
-            self.save(callback);
-          });
-        }
-      });
-    } else {
-      // check is down
-      // lastChanged is the latest up ping
-      self.uptime = 0;
-      Ping
-      .findOne()
-      .where('check', self)
-      .where('isUp', true)
-      .where('timestamp').lt( latestPing.timestamp)
-      .sort({ timestamp: -1 })
-      .exec(function(err, latestUpPing) {
-        if (err) return callback(err);
-        if (latestUpPing) {
-          self.lastChanged = latestUpPing.timestamp;
-          self.downtime = latestPing.timestamp.getTime() - latestUpPing.timestamp.getTime();
-          self.save(callback);
-        } else {
-          // check never went up, last changed is the date of the first ping
-          Ping
-          .findOne()
-          .where('check', self)
-          .sort({ timestamp: 1 })
-          .exec(function(err, firstPing) {
-            if (err) return callback(err);
-            self.lastChanged = firstPing.timestamp;
-            self.downtime = latestPing.timestamp.getTime() - firstPing.timestamp.getTime();
-            self.save(callback);
-          });
-        }
-      });
-    }
-  });
+Check.methods.updateUptime = async function() {
+  const latestPing = await Ping.findOne({ check: this._id }).sort({ timestamp: -1 });
+  if (!latestPing) return;
+  this.lastTested = latestPing.timestamp;
+  this.isUp = latestPing.isUp;
+  // lastChanged is the latest ping with the opposite status,
+  // or the first ping if the check never changed status
+  const latestChangePing = await Ping
+    .findOne({ check: this._id, isUp: !latestPing.isUp, timestamp: { $lt: latestPing.timestamp } })
+    .sort({ timestamp: -1 });
+  const changePing = latestChangePing || await Ping.findOne({ check: this._id }).sort({ timestamp: 1 });
+  const duration = latestPing.timestamp.getTime() - changePing.timestamp.getTime();
+  this.lastChanged = changePing.timestamp;
+  if (latestPing.isUp) {
+    this.uptime = duration;
+    this.downtime = 0;
+  } else {
+    this.uptime = 0;
+    this.downtime = duration;
+  }
+  return this.save();
 };
 
-Check.methods.updateQos = function(callback) {
-  var check = this;
-  Ping.countForCheck(check, new Date(Date.now() - (24 * 60 * 60 * 1000)), new Date(), function(err, result) {
-    if (err || !(0 in result)) return;
-    check.qos = result[0].value;
-    check.markModified('qos');
-    check.save(callback);
-  });
-};
-
-var statProvider = {
+const statProvider = {
   'hour':  { model: 'Ping', beginMethod: 'resetHour', endMethod: 'completeHour' },
   'day':   { model: 'CheckHourlyStat', beginMethod: 'resetDay', endMethod: 'completeDay', duration: 60 * 60 * 1000 },
   'month': { model: 'CheckDailyStat', beginMethod: 'resetMonth', endMethod: 'completeMonth', duration: 24 * 60 * 60 * 1000 },
   'year':  { model: 'CheckMonthlyStat', beginMethod: 'resetYear', endMethod: 'completeYear' }
 };
 
-Check.methods.getStatsForPeriod = function(period, begin, end, callback) {
-  var periodPrefs = statProvider[period];
-  var stats = [];
-  var query = { check: this, timestamp: { $gte: begin, $lte: end } };
-  var stream = this.db.model(periodPrefs['model']).find(query).sort({ timestamp: -1 }).stream();
-  stream.on('error', function(err) {
-    callback(err);
-  }).on('data', function(stat) {
+Check.methods.getStatsForPeriod = async function(period, begin, end) {
+  const periodPrefs = statProvider[period];
+  const query = { check: this._id, timestamp: { $gte: begin, $lte: end } };
+  const stats = await this.db.model(periodPrefs['model']).find(query).sort({ timestamp: -1 });
+  return stats.map(function(stat) {
     if (typeof stat.isUp != 'undefined') {
       // stat is a Ping
-      stats.push(stat);
-    } else {
-      // stat is an aggregation
-      stats.push({
-        timestamp: Date.parse(stat.timestamp),
-        availability: (stat.availability * 100).toFixed(3),
-        responsiveness: (stat.responsiveness * 100).toFixed(3),
-        downtime: parseInt(stat.downtime / 1000),
-        responseTime: parseInt(stat.responseTime),
-        outages: stat.outages || [],
-        end: stat.end ? stat.end.valueOf() : (Date.parse(stat.timestamp) + periodPrefs['duration'])
-      });
+      return stat;
     }
-  }).on('close', function() {
-    callback(null, stats);
-  });
-};
-
-var singleStatsProvider = {
-  'hour':  'CheckHourlyStat',
-  'day':   'CheckDailyStat',
-  'month': 'CheckMonthlyStat',
-  'year':  'CheckYearlyStat'
-};
-
-Check.methods.getSingleStatForPeriod = function(period, date, callback) {
-  var model = singleStatsProvider[period];
-  var begin = moment(date).clone().startOf(period).toDate();
-  var end   = moment(date).clone().endOf(period).toDate();
-  var query = { check: this, timestamp: { $gte: begin, $lte: end } };
-  this.db.model(model).findOne(query, function(err, stat) {
-    if (err || !stat) return callback(err);
-    return callback(null, {
+    // stat is an aggregation
+    return {
       timestamp: Date.parse(stat.timestamp),
       availability: (stat.availability * 100).toFixed(3),
       responsiveness: (stat.responsiveness * 100).toFixed(3),
       downtime: parseInt(stat.downtime / 1000),
       responseTime: parseInt(stat.responseTime),
       outages: stat.outages || [],
-      begin: begin.valueOf(),
-      end: end.valueOf()
-    })
+      end: stat.end ? stat.end.valueOf() : (Date.parse(stat.timestamp) + periodPrefs['duration'])
+    };
   });
+};
+
+const singleStatsProvider = {
+  'hour':  'CheckHourlyStat',
+  'day':   'CheckDailyStat',
+  'month': 'CheckMonthlyStat',
+  'year':  'CheckYearlyStat'
+};
+
+Check.methods.getSingleStatForPeriod = async function(period, date) {
+  const model = singleStatsProvider[period];
+  const begin = moment(date).clone().startOf(period).toDate();
+  const end   = moment(date).clone().endOf(period).toDate();
+  const query = { check: this._id, timestamp: { $gte: begin, $lte: end } };
+  const stat = await this.db.model(model).findOne(query);
+  if (!stat) return;
+  return {
+    timestamp: Date.parse(stat.timestamp),
+    availability: (stat.availability * 100).toFixed(3),
+    responsiveness: (stat.responsiveness * 100).toFixed(3),
+    downtime: parseInt(stat.downtime / 1000),
+    responseTime: parseInt(stat.responseTime),
+    outages: stat.outages || [],
+    begin: begin.valueOf(),
+    end: end.valueOf()
+  };
 };
 
 Check.methods.populateFromDirtyCheck = function(dirtyCheck, pollerCollection) {
@@ -345,20 +274,19 @@ Check.methods.populateFromDirtyCheck = function(dirtyCheck, pollerCollection) {
   }
 };
 
-Check.statics.getAllTags = function(callback) {
-  this.aggregate(
+Check.statics.getAllTags = async function() {
+  const res = await this.aggregate([
     { $unwind: "$tags" },
     { $group: {
-    _id: null,
-    tags: { $addToSet: "$tags" }
-  } }, function(err, res) {
-    if (err || !res.length) return callback(err, []);
-    return callback(null, res[0].tags);
-  });
+      _id: null,
+      tags: { $addToSet: "$tags" }
+    } }
+  ]);
+  return res.length ? res[0].tags : [];
 };
 
-Check.statics.findForTag = function(tag, callback) {
-  return this.find().where('tags').equals(tag).exec(callback);
+Check.statics.findForTag = function(tag) {
+  return this.find().where('tags').equals(tag);
 };
 
 Check.statics.convertTags = function(tags) {
@@ -381,20 +309,34 @@ Check.statics.convertTags = function(tags) {
  * @api   public
  */
 Check.statics.callForChecksNeedingPoll = function(callback) {
-  var stream = this.needingPoll().stream();
-  stream.on('data', function(check) {
-    callback(check);
-  });
+  this.needingPoll().cursor()
+    .on('data', callback)
+    .on('error', function(err) { console.error(err); });
 };
 
+/**
+ * Query for the checks that need to be polled, i.e. the checks for which
+ * Check.methods.needsPoll() returns true, evaluated by the database.
+ */
 Check.statics.needingPoll = function() {
-  return this.$where(Check.methods.needsPoll);
-};
-
-Check.statics.updateAllQos = function(callback) {
-  this.find({}).each(function (err, check) {
-    if (err || !check) return;
-    check.updateQos(callback);
+  const now = new Date();
+  return this.find({
+    isPaused: { $ne: true },
+    $or: [
+      { firstTested: null }, // never tested
+      { $expr: { $cond: {
+        if: { $gt: ['$interval', 0] },
+        then: { $gte: [
+          { $add: [
+            { $subtract: [now, '$lastTested'] },
+            // delay: keep polls aligned on the first test date
+            { $mod: [{ $subtract: ['$lastTested', '$firstTested'] }, '$interval'] }
+          ] },
+          '$interval'
+        ] },
+        else: false
+      } } }
+    ]
   });
 };
 
