@@ -1,4 +1,4 @@
-// Makes a table sortable by clicking its column headers.
+// Makes a table sortable by its column headers, which become buttons (so they work from the keyboard).
 // Rows are compared on the `data-sort` attribute of their cells: numerically when both
 // values are numbers, otherwise as case-insensitive text.
 // Call sort() after replacing the rows to apply the current order to them.
@@ -8,9 +8,17 @@ class SortableTable {
     this.column = column;
     this.direction = direction;
     this.headers = Array.from(table.tHead.rows[0].cells);
-    this.headers.forEach((header, index) => {
-      header.classList.add('sortable');
-      header.addEventListener('click', () => this.sortBy(index));
+    this.icons = this.headers.map((header, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn sort-button d-inline-flex align-items-center gap-1';
+      button.append(...header.childNodes);
+      const icon = document.createElement('i');
+      icon.setAttribute('aria-hidden', 'true');
+      button.append(icon);
+      header.append(button);
+      button.addEventListener('click', () => this.sortBy(index));
+      return icon;
     });
     this.sort();
   }
@@ -29,11 +37,14 @@ class SortableTable {
     rows.sort((a, b) => factor * SortableTable.compare(value(a), value(b)));
     tbody.append(...rows);
     this.headers.forEach((header, index) => {
-      if (index === this.column) {
+      const sorted = index === this.column;
+      if (sorted) {
         header.setAttribute('aria-sort', this.direction === 'asc' ? 'ascending' : 'descending');
       } else {
         header.removeAttribute('aria-sort');
       }
+      // an unsorted column shows the order a click would give, on hover
+      this.icons[index].className = 'bi ' + (sorted && this.direction === 'desc' ? 'bi-caret-down-fill' : 'bi-caret-up-fill');
     });
   }
 

@@ -1,26 +1,28 @@
-<h2>Checks</h2>
-<ul id="checkUptimeBars" class="adjustedOnDateNavigation">
-</ul>
+<div class="card mb-4">
+  <h2 class="card-header h5">Checks</h2>
+  <div class="card-body px-4">
+    <ul id="checkUptimeBars" class="list-unstyled vstack gap-3 mb-0 adjustedOnDateNavigation">
+    </ul>
+  </div>
+</div>
 <script id="check_template" type="text/template">
 <li>
-<div class="name">
-    <a href="{%=  route + '/checks/' + stat.check._id +'?type=' + type + '&date=' + date %}">{%= stat.check.name %}</a>
-    {% if (isSafeUrl(stat.check.url)) { %}<a href="{%= stat.check.url %}" target="_blank"><img src="{%= route %}/images/external-link-ltr-icon.png"></a>{% } %}
-</div>
-{%- uptimeBar('check', {
+  <div class="mb-1">
+    <a href="{%= route + '/checks/' + stat.check._id + '?type=' + type + '&date=' + date %}">{%= stat.check.name %}</a>{% if (isSafeUrl(stat.check.url)) { %}&nbsp;<a class="link-secondary" href="{%= stat.check.url %}" target="_blank" aria-label="Open {%= stat.check.url %}"><i class="bi bi-box-arrow-up-right small"></i></a>{% } %}
+  </div>
+  {%- uptimeBar('check', {
         from: begin,
         to: end,
         periods: stat.outages || [],
         check: stat.check
     })
-%}
+  %}
 </li>
 </script>
 <script>
 $(document).ready(function() {
   var check_template = ejs.compile(document.getElementById('check_template').innerHTML);
   var updateChecks = function() {
-    var queryString = typeof dateInterval == 'undefined' ? '' : dateInterval.getIntervalQueryString();
     $.getJSON('<%= url %>' + dateInterval.type + '/' + dateInterval.date, function(stats) {
       var bars = [];
       $.each(stats, function(index, stat) {

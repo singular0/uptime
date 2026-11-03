@@ -1,250 +1,131 @@
+/* Dashboard styles on top of Bootstrap 5.3. Colors come from Bootstrap's theme variables, so
+   that the pages work in both the light and the dark color mode. */
+
 :root {
-  --uptime-green: #468847;
-  --uptime-orange: #c27100;
-  --uptime-red: #b94a48;
-  --uptime-blue: #3a87ad;
-  --date-navigation-height: 6rem;
+  --chart-availability: var(--bs-primary);
+  --chart-response-time: var(--bs-success);
+  --chart-responsiveness: var(--bs-purple);
+  --date-navigation-height: 10rem; /* kept up to date by dateNavigation.js */
   --graph-y-axis-width: 50px;
 }
 
+/* plain links are underlined on hover only; links styled by a class (buttons, nav links...) keep their own style */
 a {
   text-decoration: none;
 }
-
-a:hover {
+a:not([class]):hover {
   text-decoration: underline;
 }
 
-h1, h2, h3 {
-  font-weight: normal;
+/* the theme dropdown opens over the sticky date navigation of the check and tag pages */
+.navbar {
+  z-index: 1030;
 }
 
-h1 {
-  margin-bottom: 1rem;
+/* tables */
+.table {
+  font-variant-numeric: tabular-nums;
 }
-
-h3 {
-  font-size: 20px;
+.table > thead {
+  --bs-table-color: var(--bs-secondary-color);
+  font-size: .875em;
+  white-space: nowrap;
 }
-
-.footer {
-  margin-top: 2rem;
-  padding: 35px 0 36px;
-  border-top: 1px solid #e5e5e5;
+/* a table filling a card lines up with the card header, and leaves the bottom border to the card */
+.card > .table {
+  margin-bottom: 0;
 }
-
-#new_events a {
-  color: orange;
+.card > .table > * > tr > :first-child {
+  padding-left: var(--bs-card-spacer-x);
 }
-
-#new_events a:hover {
-  color: white;
+.card > .table > * > tr > :last-child {
+  padding-right: var(--bs-card-spacer-x);
 }
-
-#check_summary li {
-  display: flex;
-  align-items: center;
-  margin-left: 1rem;
+.card > .table > tbody > tr:last-child > * {
+  border-bottom-width: 0;
 }
-
-#all_up strong {
-  color: var(--bs-success-text-emphasis);
+/* rows of the check and tag data tables. Bootstrap's .table-danger and .table-warning keep their
+   light colors in dark mode, so these use the emphasis colors of the theme instead. */
+.table > tbody > tr.row-down {
+  --bs-table-color-type: var(--bs-danger-text-emphasis);
 }
-
-#all_down strong {
-  color: var(--bs-danger-text-emphasis);
+.table > tbody > tr.row-slow {
+  --bs-table-color-type: var(--bs-warning-text-emphasis);
 }
-
-#check_summary li strong {
-  font-size: 1.75rem;
-  line-height: 1;
-}
-
-#check_summary li .badge {
-  font-size: 1em;
-  margin-right: .5rem;
-}
-
-#welcome {
-  text-align: center;
-  font-size: 1.5em;
-  margin: 180px 0;
-}
-
-#events ul {
-  margin-top: 1em;
-  padding-left: 0;
-  list-style: none;
-}
-
-#events li {
-  padding-bottom: 0.5em;
-}
-
-#events li.new {
-  background-color: #ffecca;
-}
-
-#events li.new:first-child {
-  padding-top: 0.5em;
-}
-
-.uptimeBar {
-  height: 15px;
-  position: relative;
-  background: linear-gradient(to bottom, #bfd255 0%, #8eb92a 50%, #72aa00 51%, #9ecb2d 100%);
-}
-.timeline .uptimeBar {
-  height: 22px;
-}
-.uptimeBar div {
-  position: absolute;
-  height: inherit;
-  margin: 0;
-}
-
-.uptimeBar .down {
-  min-width: 1px;
-  background: linear-gradient(to bottom, #efc5ca 0%, #d24b5a 50%, #ba2737 51%, #f18e99 100%);
-}
-
-.uptimeBar .down:hover {
-  background: var(--uptime-red);
-}
-
-.uptimeBar .pause {
-  background: linear-gradient(to bottom, #6db3f2 0%, #54a3ee 50%, #3690f0 51%, #1e69de 100%);
-}
-
-.uptimeBar .pause:hover {
-  background: var(--uptime-blue);
-}
-
-.green {
-  color: var(--uptime-green);
-}
-
-.orange {
-  color: var(--uptime-orange);
-}
-
-.red {
-  color: var(--uptime-red);
-}
-
-.blue {
-  color: var(--uptime-blue);
-}
-
-/* Bootstrap colors table cells through these variables */
-.table tr.orange {
-  --bs-table-color-type: var(--uptime-orange);
-}
-.table tr.red {
-  --bs-table-color-type: var(--uptime-red);
-}
-.table tr.week-end {
-  --bs-table-bg-type: #eee;
+.table > tbody > tr.row-weekend {
+  --bs-table-bg-type: var(--bs-table-striped-bg);
 }
 
 /* SortableTable headers */
-th.sortable {
-  cursor: pointer;
-  user-select: none;
+.sort-button {
+  --bs-btn-padding-x: 0;
+  --bs-btn-padding-y: 0;
+  --bs-btn-border-width: 0;
+  --bs-btn-font-size: inherit;
+  --bs-btn-font-weight: 600;
+  --bs-btn-line-height: inherit;
+  --bs-btn-color: inherit;
+  --bs-btn-hover-color: var(--bs-emphasis-color);
+  --bs-btn-active-color: var(--bs-emphasis-color);
+  text-align: inherit;
 }
-th.sortable::after {
-  content: "\25B2";
-  float: right;
-  font-size: .6em;
-  margin-top: .35em;
-  visibility: hidden;
+.sort-button .bi {
+  font-size: .75em;
+  opacity: 0;
 }
-th.sortable:hover::after {
-  visibility: visible;
-  opacity: .3;
+.sort-button:hover .bi,
+.sort-button:focus-visible .bi {
+  opacity: .5;
 }
-th.sortable[aria-sort]::after {
-  visibility: visible;
-  opacity: .6;
-}
-th.sortable[aria-sort="descending"]::after {
-  content: "\25BC";
-}
-th.sortable[aria-sort] {
-  background-color: #f7f7f9;
+th[aria-sort] .sort-button .bi {
+  opacity: 1;
 }
 
-.tagify__tag {
-  cursor: pointer;
+/* uptime bars: green when up, red when down, blue when paused, gray without data */
+.uptimeBar {
+  position: relative;
+  height: .75rem;
+  overflow: hidden;
+  border-radius: var(--bs-border-radius-sm);
+  background-color: var(--bs-success);
 }
-
-.form-actions {
-  padding: 1rem 0 1rem calc(100% / 6);
-  margin: 1rem 0;
-  background-color: var(--bs-tertiary-bg);
-  border-top: 1px solid var(--bs-border-color);
-}
-.form-actions::after {
-  content: "";
-  display: table;
-  clear: both;
-}
-.form-actions .float-end {
-  margin-right: 1rem;
-}
-
-table.chart td {
-  width: 12%;
-}
-
-table.ping .error {
-  max-width: 350px;
-  word-wrap: break-word;
-}
-
-/* date navigation and section list of the check and tag pages */
-#dateNavigation {
-  position: sticky;
+.uptimeBar > div {
+  position: absolute;
   top: 0;
-  z-index: 50;
-  padding-bottom: .5rem;
-  background-color: var(--bs-body-bg);
+  bottom: 0;
 }
-#secondaryNav {
-  position: sticky;
-  top: var(--date-navigation-height);
+.uptimeBar .down {
+  min-width: 1px;
+  background-color: var(--bs-danger);
 }
-#sectionList section {
-  scroll-margin-top: var(--date-navigation-height);
+.uptimeBar .pause {
+  background-color: var(--bs-info);
 }
-#sectionList strong {
-  font-size: 1.5em;
+.uptimeBar .nodata {
+  background-color: var(--bs-secondary-bg);
 }
-#secondaryNav .bi-chevron-right {
-  float: right;
-  opacity: .25;
+.uptimeBar .down:hover,
+.uptimeBar .pause:hover {
+  filter: brightness(.8);
 }
-#dateNavigation .title {
-  text-align: center;
-  margin: 5px;
+
+/* stat cards of the check and tag pages */
+.stat-card {
+  transition: border-color .15s ease-in-out;
 }
-#dateNavigation .title .btn-link {
-  padding: 0;
-  border: none;
-  vertical-align: inherit;
+.stat-card:hover {
+  border-color: var(--bs-primary-border-subtle);
 }
-/* the timeline and the graphs line up with the period buttons, between the < and > buttons */
-#dateNavigation .timeline,
-.adjustedOnDateNavigation {
-  margin-left: 2rem;
-  margin-right: 2rem;
+.stat-value {
+  font-variant-numeric: tabular-nums;
 }
-/* a graph's y axis sits to the left of the period buttons, so that its plot area lines up with them */
-.graph.adjustedOnDateNavigation {
-  margin-left: calc(2rem - var(--graph-y-axis-width));
-}
+
+/* date navigation of the check and tag pages */
 #dateNavigation .timeline {
-  height: 22px;
+  margin-top: .25rem;
+}
+#dateNavigation .timeline .uptimeBar {
+  height: .5rem;
 }
 #dateNavigation .periods .btn-group {
   display: flex;
@@ -261,21 +142,66 @@ table.ping .error {
 #dateNavigation .periods .btn:last-child {
   flex: 0 0 2rem;
 }
+/* a period button is tinted by the availability during that period, more strongly when it had downtime */
+#dateNavigation .periods .btn.period-up {
+  --bs-btn-bg: var(--bs-success-bg-subtle);
+  --bs-btn-disabled-bg: var(--bs-success-bg-subtle);
+}
+#dateNavigation .periods .btn.period-degraded {
+  --bs-btn-bg: var(--bs-warning-border-subtle);
+  --bs-btn-disabled-bg: var(--bs-warning-border-subtle);
+}
+#dateNavigation .periods .btn.period-down {
+  --bs-btn-bg: var(--bs-danger-border-subtle);
+  --bs-btn-disabled-bg: var(--bs-danger-border-subtle);
+}
+/* the timeline and the graphs line up with the period buttons, between the < and > buttons */
+#dateNavigation .timeline,
+.adjustedOnDateNavigation {
+  margin-left: 2rem;
+  margin-right: 2rem;
+}
+/* a graph's y axis sits to the left of the period buttons, so that its plot area lines up with them */
+.graph.adjustedOnDateNavigation {
+  margin-left: calc(2rem - var(--graph-y-axis-width));
+}
 .graph {
   position: relative;
   height: 200px;
-  margin-top: 20px;
 }
-#checkUptimeBars {
-  padding-left: 0;
+/* the downtime list of a long period scrolls, instead of pushing the graphs down */
+.downtime-list {
+  max-height: 24rem;
+  overflow-y: auto;
 }
-#checkUptimeBars li {
-  padding: 0 0 1em 0;
-  list-style-type: none;
+/* sections scrolled into view stop below the sticky date navigation */
+section[id] {
+  scroll-margin-top: calc(var(--date-navigation-height) + .5rem);
 }
-#checkUptimeBars li .name {
-  margin-bottom: 2px;
+
+/* Tagify, styled like a Bootstrap form control */
+.tagify {
+  --tags-border-color: var(--bs-border-color);
+  --tags-hover-border-color: var(--bs-border-color);
+  --tags-focus-border-color: #86b7fe;
+  --tag-bg: var(--bs-secondary-bg);
+  --tag-hover: var(--bs-primary-bg-subtle);
+  --tag-text-color: var(--bs-body-color);
+  --tag-text-color--edit: var(--bs-body-color);
+  --tag-border-radius: var(--bs-border-radius-sm);
+  --tag-pad: .125em .5em;
+  --tag-remove-bg: var(--bs-danger-bg-subtle);
+  --tag-remove-btn-color: var(--bs-secondary-color);
+  --tag-remove-btn-bg--hover: var(--bs-danger);
+  --input-color: var(--bs-body-color);
+  --placeholder-color: var(--bs-secondary-color);
+  --placeholder-color-focus: var(--bs-tertiary-color);
+  border-radius: var(--bs-border-radius);
+  background-color: var(--bs-body-bg);
 }
-#check_24h + a.btn {
-  margin-left: 10px;
+.tagify.tagify--focus {
+  box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb), .25);
+}
+.tagify__tag {
+  cursor: pointer;
 }

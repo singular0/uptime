@@ -1,5 +1,9 @@
-<h2>Availability</h2>
-<div id="availabilityGraph" class="graph adjustedOnDateNavigation"></div>
+<div class="card mb-4">
+  <h2 class="card-header h5">Availability</h2>
+  <div class="card-body px-4">
+    <div id="availabilityGraph" class="graph adjustedOnDateNavigation"></div>
+  </div>
+</div>
 <script>
 jQuery(document).ready(function($) {
   dateInterval.on('refresh-stats', function() {
@@ -7,7 +11,7 @@ jQuery(document).ready(function($) {
       points: dateInterval.stats.map(function(stat) {
         return { x: new Date(stat.timestamp).valueOf(), y: Number(stat.availability || (stat.isUp ? 100 : 0)) };
       }),
-      color: '#00a8f0',
+      color: '--chart-availability',
       unit: '%',
       percent: true,
       fill: true

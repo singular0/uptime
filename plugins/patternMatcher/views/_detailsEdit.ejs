@@ -1,6 +1,5 @@
-<div class="row mb-3">
-  <label class="col-sm-2 col-form-label" for="check_match">Pattern to match</label>
-  <div class="col-sm-10">
-    <input type="text" id="check_match" name="check[match]" value="<%= check.getPollerParam('match') || '' %>" class="form-control" placeholder="Uses regular expressions. Leave blank to disable pattern detection."/>
-  </div>
+<div class="col-12">
+  <label class="form-label" for="check_match">Pattern to match</label>
+  <input type="text" id="check_match" name="check[match]" value="<%= check.getPollerParam('match') || '' %>" class="form-control font-monospace" placeholder="/hello/i"/>
+  <div class="form-text">A regular expression the response body must match, with or without slashes and flags. Leave blank to skip the check.</div>
 </div>

@@ -62,6 +62,8 @@ The system runs as three cooperating pieces. They can share one process (`node a
 
 `Check.needingPoll()` uses an `$expr` query that mirrors `Check.methods.needsPoll()`, because `$where` is deprecated since MongoDB 8. `test/lib/test_check.js` checks that both agree.
 
+**Dashboard UI** uses Bootstrap 5.3 (CSS and the JS bundle) and Bootstrap Icons, vendored in `app/dashboard/public/vendor/`. Colors come from Bootstrap's theme variables (`var(--bs-...)`, `text-*-emphasis`, `*-bg-subtle`), never hard-coded values, so that the light and dark color modes (`javascripts/colorMode.js`) both work. `javascripts/ui.js` gives a Bootstrap tooltip to any element with `data-bs-toggle="tooltip"` (also when it's added later) and provides `showToast()`; the layout shows the `info` flash messages as toasts. The layout highlights the navbar item from `navSection`, and routes pass a `title`. The check and tag pages are built from the `_dateNavigation`, `_statCards` and section partials, and `DateInterval` calls a `refresh-stats` or `refresh-stat` listener added after the stats arrived right away.
+
 `lib/flash.js` replaces connect-flash with the same `req.flash()` API. `lib/proxy.js` monkey-patches `http.request`/`get` and `https.request`/`get` when `http_proxy`/`https_proxy` is set.
 
 ## Plugins

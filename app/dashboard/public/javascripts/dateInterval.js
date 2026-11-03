@@ -4,6 +4,7 @@ var DateInterval = function(type, date, origin, url, maxZoom) {
   this.url = url;
   this.maxZoom = maxZoom || 'hour';
   this.listeners = {};
+  this.received = {};
   this.stat = {};
   this.stats = [];
   this.setDate(date);
@@ -13,6 +14,10 @@ DateInterval.prototype.setDate = function(date) {
   this.momentForDate = moment(this.date);
   this.begin = this.momentForDate.clone().startOf(this.type);
   this.end = this.momentForDate.clone().endOf(this.type);
+  // the stats of the previous period no longer apply, until refreshData() gets the new ones
+  this.stat = {};
+  this.stats = [];
+  this.received = {};
   this.trigger('change-date');
   this.refreshData();
 }
@@ -71,13 +76,22 @@ DateInterval.prototype.getSubTypeDuration = function() {
   var date = moment();
   return date.endOf(this.subType(this.type)).valueOf() - date.startOf(this.subType(this.type)).valueOf();
 }
+// The stats are requested while the page loads, and pages add their listeners once it's ready,
+// so the stats can arrive first. A listener added after them is called right away.
+DateInterval.prototype.replayedEvents = ['refresh-stats', 'refresh-stat'];
 DateInterval.prototype.on = function(eventName, callback) {
   if (!this.listeners[eventName]) {
     this.listeners[eventName] = [];
   }
   this.listeners[eventName].push(callback);
+  if (this.received[eventName]) {
+    callback.apply(this);
+  }
 }
 DateInterval.prototype.trigger = function(eventName, params) {
+  if (this.replayedEvents.indexOf(eventName) !== -1) {
+    this.received[eventName] = true;
+  }
   if (!this.listeners[eventName]) {
     return;
   }

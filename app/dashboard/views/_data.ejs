@@ -1,56 +1,60 @@
-<div class="stat" style="display:none">
-  <h2>Data</h2>
-  <table class="table stat" style="display:none">
+<div class="card mb-4 overflow-hidden stat d-none">
+  <h2 class="card-header h5">Data</h2>
+  <table class="table table-hover">
     <thead>
       <tr>
-        <th class="date">Date</th>
-        <th title="Percentage of uptime">Availability</th>
-        <th title="Total downtime">Downtime</th>
-        <th title="Percentage of all pings below slow threshold">Responsiveness</th>
-        <th title="Average response time of all pings">Response time</th>
+        <th>Date</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Percentage of uptime">Availability</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Total downtime">Downtime</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Percentage of pings below the slow threshold">Responsiveness</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Average response time of all pings">Response time</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 </div>
-<div class="ping" style="display:none">
-  <h2>Data - Pings</h2>
-  <table class="table ping" style="display:none">
+<div class="card mb-4 overflow-hidden ping d-none">
+  <h2 class="card-header h5">Pings</h2>
+  <table class="table table-hover">
     <thead>
       <tr>
         <th>Date</th>
         <th>Status</th>
-        <th>Response time</th>
+        <th class="text-end">Response time</th>
         <th>Details</th>
-        <th class="error">Error</th>
+        <th>Error</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 </div>
 <script id="stat_template" type="text/template">
-<tr class="{%= (stat.availability < 100) ? 'red' : (stat.responsiveness < 100) ? 'orange' : '' %}{%= ['0','6'].indexOf(moment(stat.timestamp).format('d')) !== -1 ? ' week-end' : '' %}">
-  <td title="{%= new Date(stat.timestamp) %}"><a href="#" class="date" data-type="{%= subType %}" data-date="{%= stat.timestamp %}">{%= moment(stat.timestamp).format(dateFormat) %}</a></td>
-  <td>{%= stat.availability.replace('.000', '') %}%</td>
-  <td title="{%= stat.downtime %}s">{%= stat.downtime == 0 ? '' : stat.downtime < 300 ? stat.downtime + 's' : moment.duration(stat.downtime, 'seconds').humanize() %}</td>
-  <td>{%= stat.responsiveness.replace('.000', '') %}%</td>
-  <td>{%= stat.responseTime %}ms</td>
+<tr class="{%= (stat.availability < 100) ? 'row-down' : (stat.responsiveness < 100) ? 'row-slow' : '' %}{%= [0, 6].includes(moment(stat.timestamp).day()) ? ' row-weekend' : '' %}">
+  <td><a href="?type={%= subType %}&date={%= stat.timestamp %}" class="date" data-type="{%= subType %}" data-date="{%= stat.timestamp %}">{%= moment(stat.timestamp).format(dateFormat) %}</a></td>
+  <td class="text-end">{%= stat.availability.replace('.000', '') %}%</td>
+  {% if (stat.downtime) { %}
+  <td class="text-end" data-bs-toggle="tooltip" title="{%= stat.downtime %} seconds">{%= formatDowntime(stat.downtime) %}</td>
+  {% } else { %}
+  <td></td>
+  {% } %}
+  <td class="text-end">{%= stat.responsiveness.replace('.000', '') %}%</td>
+  <td class="text-end">{%= stat.responseTime %} ms</td>
 </tr>
 </script>
 <script id="ping_template" type="text/template">
-<tr class="{%= !ping.isUp ? 'red' : !ping.isResponsive ? 'orange' : '' %}">
-  <td title="{%= new Date(ping.timestamp) %}">{%= moment(ping.timestamp).format('LLLL') %}</td>
+<tr class="{%= !ping.isUp ? 'row-down' : !ping.isResponsive ? 'row-slow' : '' %}">
+  <td class="text-nowrap">{%= moment(ping.timestamp).format('LLLL') %}</td>
   <td>
     <span class="badge {%= (ping.isUp ? 'text-bg-success' : 'text-bg-danger') %}">{%= (ping.isUp ? 'Up' : 'Down') %}</span>
     {% if (ping.isUp && !ping.isResponsive) { %}<span class="badge text-bg-warning">Slow</span>{% } %}
   </td>
-  <td>{%= parseInt(ping.time) %}ms</td>
+  <td class="text-end">{%= parseInt(ping.time) %} ms</td>
   <td>
     {% if (pingHasValidUrl(ping)) { %}
       <a href="{%= ping.details.url %}">See report</a>
     {% } %}
   </td>
-  <td class="error">{%= ping.error || '' %}</td>
+  <td class="text-break">{%= ping.error || '' %}</td>
 </tr>
 </script>
 <script>
@@ -68,9 +72,6 @@ $(document).ready(function() {
     }
     var type = dateInterval.type;
     var subType = dateInterval.subType(type);
-    var date = dateInterval.momentForDate;
-    var begin = dateInterval.begin;
-    var end = dateInterval.end;
     var stats = dateInterval.stats;
     var lines = [];
     if (type == 'hour') {
@@ -78,21 +79,22 @@ $(document).ready(function() {
       $.each(stats, function(key, stat) {
           lines.unshift(ping_template({ ping: stat, pingHasValidUrl: pingHasValidUrl }));
       });
-      $('#data .stat').hide();
+      $('#data .stat').addClass('d-none');
       $('#data .ping tbody').html(lines.join(''));
-      $('#data .ping').show();
+      $('#data .ping').removeClass('d-none');
     } else {
       // display aggregated stats
       $.each(stats, function(key, stat) {
         lines.unshift(stat_template({ stat: stat, dateFormat: dateFormats[type], subType: subType }));
       });
-      $('#data .ping').hide();
+      $('#data .ping').addClass('d-none');
       $('#data .stat tbody').html(lines.join(''));
-      $('#data .stat').show();
+      $('#data .stat').removeClass('d-none');
     }
   }
   dateInterval.on('refresh-stats', updateStats);
-  $('.stat table').on('click', 'a.date', function(event) {
+  $('#data .stat table').on('click', 'a.date', function(event) {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return; // let the browser open the link
     var data = $(this).data();
     dateInterval.update(data.type, parseInt(data.date));
     return false;

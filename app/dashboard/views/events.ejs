@@ -1,21 +1,23 @@
-<h1>
-  Latest events
-</h1>
 <div id="events">
-  <%- partial('_events', { url: '/api/pings/events', route: route }) %>
+  <div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-4 border-bottom">
+    <h1 class="h3 mb-0 me-auto">Latest events</h1>
+  </div>
+  <div class="card overflow-hidden">
+    <%- partial('_events', { url: '/api/pings/events', route: route, emptyMessage: 'Nothing happened lately. All green!' }) %>
+  </div>
 </div>
-<div id="welcome" style="display: none">
-<p>Welcome to Uptime, the web monitoring application.</p>
-<p>To begin, <a href="<%= route %>/checks/new">create your first check</a>.</p>
+<div id="welcome" class="d-none text-center py-5">
+  <i class="bi bi-activity display-1 text-primary"></i>
+  <h1 class="h3 mt-3">Welcome to Uptime</h1>
+  <p class="text-body-secondary mb-4">Uptime polls your websites and services, and tells you when they go down.</p>
+  <a class="btn btn-primary btn-lg" href="<%= route %>/checks/new"><i class="bi bi-plus-lg"></i> Create your first check</a>
 </div>
 <script>
 $(document).ready(function() {
-  $('#mainNav .nav-link').eq(0).addClass('active');
   $.getJSON('/api/checks/count', function(nbChecks) {
     if (nbChecks.total == 0) {
-      $('#events').hide();
-      $('h1').hide();
-      $('#welcome').show();
+      $('#events').addClass('d-none');
+      $('#welcome').removeClass('d-none');
     };
   });
 });

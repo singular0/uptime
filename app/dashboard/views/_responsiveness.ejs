@@ -1,5 +1,9 @@
-<h2>Responsiveness</h2>
-<div id="responsivenessGraph" class="graph adjustedOnDateNavigation"></div>
+<div class="card mb-4">
+  <h2 class="card-header h5">Responsiveness</h2>
+  <div class="card-body px-4">
+    <div id="responsivenessGraph" class="graph adjustedOnDateNavigation"></div>
+  </div>
+</div>
 <script>
 jQuery(document).ready(function($) {
   dateInterval.on('refresh-stats', function() {
@@ -7,7 +11,7 @@ jQuery(document).ready(function($) {
       points: dateInterval.stats.map(function(stat) {
         return { x: new Date(stat.timestamp).valueOf(), y: Number(stat.responsiveness || (stat.isResponsive ? 100 : 0)) };
       }),
-      color: '#9440ed',
+      color: '--chart-responsiveness',
       unit: '%',
       percent: true
     });

@@ -37,6 +37,8 @@ app.use(function locals(req, res, next) {
     }
   };
   res.locals.moment = moment;
+  res.locals.navSection = req.path.split('/')[1]; // 'events', 'checks' or 'tags', highlighted in the navbar
+  res.locals.title = ''; // page title, before " · Uptime"
   next();
 });
 
@@ -62,16 +64,16 @@ const intervalFromQuery = function(query, types) {
 // Routes
 
 app.get('/events', function(req, res) {
-  res.render('events');
+  res.render('events', { title: 'Events' });
 });
 
 app.get('/checks', async function(req, res) {
   const checks = await Check.find().sort({ isUp: 1, lastChanged: -1 });
-  res.render('checks', { info: req.flash('info'), checks: checks });
+  res.render('checks', { title: 'Checks', info: req.flash('info'), checks: checks });
 });
 
 app.get('/checks/new', function(req, res) {
-  res.render('check_new', { check: new Check(), pollerCollection: app.get('pollerCollection'), info: req.flash('info') });
+  res.render('check_new', { title: 'New check', check: new Check(), pollerCollection: app.get('pollerCollection'), info: req.flash('info') });
 });
 
 app.post('/checks', async function(req, res, next) {
@@ -91,7 +93,7 @@ app.post('/checks', async function(req, res, next) {
 app.get('/checks/:id', async function(req, res) {
   const check = await Check.findOne({ _id: req.params.id });
   if (!check) return res.status(404).send('failed to load check ' + req.params.id);
-  res.render('check', { check: check, info: req.flash('info'), interval: intervalFromQuery(req.query, ['year', 'month', 'day', 'hour']) });
+  res.render('check', { title: check.name, check: check, info: req.flash('info'), interval: intervalFromQuery(req.query, ['year', 'month', 'day', 'hour']) });
 });
 
 app.get('/checks/:id/edit', async function(req, res) {
@@ -99,7 +101,7 @@ app.get('/checks/:id/edit', async function(req, res) {
   if (!check) return res.status(404).send('failed to load check ' + req.params.id);
   const pollerDetails = [];
   app.emit('checkEdit', check.type, check, pollerDetails);
-  res.render('check_edit', { check: check, pollerCollection: app.get('pollerCollection'), pollerDetails: pollerDetails.join(''), info: req.flash('info'), req: req });
+  res.render('check_edit', { title: 'Edit ' + check.name, check: check, pollerCollection: app.get('pollerCollection'), pollerDetails: pollerDetails.join(''), info: req.flash('info'), req: req });
 });
 
 app.get('/pollerPartial/:type', function(req, res, next) {
@@ -138,13 +140,13 @@ app.delete('/checks/:id', async function(req, res, next) {
 
 app.get('/tags', async function(req, res) {
   const tags = await Tag.find().sort({ name: 1 });
-  res.render('tags', { tags: tags });
+  res.render('tags', { title: 'Tags', tags: tags });
 });
 
 app.get('/tags/:name', async function(req, res, next) {
   const tag = await Tag.findOne({ name: req.params.name });
   if (!tag) return next(new Error('failed to load tag ' + req.params.name));
-  res.render('tag', { tag: tag, interval: intervalFromQuery(req.query, ['year', 'month', 'day']) });
+  res.render('tag', { title: tag.name, tag: tag, interval: intervalFromQuery(req.query, ['year', 'month', 'day']) });
 });
 
 // static assets and error handling, after all routes

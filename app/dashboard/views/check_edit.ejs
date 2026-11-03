@@ -1,33 +1,22 @@
 <script src="<%= route %>/javascripts/checkState.js"></script>
-<div class="float-end">
-  <span id="check_24h"></span>
+<div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-4 border-bottom">
+  <div class="me-auto">
+    <h1 class="h3 mb-1">Edit check</h1>
+    <a class="link-secondary small" href="<%= route %>/checks/<%= check._id %>"><%= check.name %></a>
+  </div>
+  <span id="checkStatus"></span>
+  <% if (check.lastTested) { %>
+  <button type="button" class="btn btn-outline-secondary" id="pauseButton"><i class="bi bi-<%= check.isPaused ? 'play-fill' : 'pause-fill' %>"></i> <span><%= check.isPaused ? 'Resume' : 'Pause' %></span></button>
+  <% } %>
 </div>
-<h1>Edit check "<%= check.name %>"</h1>
-<% if (info.length) { %>
-<div class="alert alert-success"><%= info %></div>
-<% } %>
 <%- partial('_check_details', { check: check, pollerCollection: pollerCollection, pollerDetails: pollerDetails, route: route }) %>
-<div>
-</div>
 <script>
 jQuery(document).ready(function($) {
-  // highlight current section in main nav
-  $('#mainNav .nav-link').eq(1).addClass('active');
-
   // update check state live
   updateCheckState(<%- jsonForScript(check) %>);
   socket.on('CheckEvent', function() {
     $.getJSON('/api/checks/<%= check._id %>', updateCheckState);
   });
-  
-  // manage pause
-  $('#check_form button[name="pause"]').on('click', function(e) {
-    var icon = $(this).children('i');
-    $.getJSON('/api/checks/<%= check._id %>/pause', function() {
-      icon.toggleClass('bi-pause-fill bi-play-fill');
-    });
-    e.preventDefault();
-  });
-
+  initPauseButton('<%= check._id %>');
 });
 </script>

@@ -1,12 +1,12 @@
 var uptimeBar = (function(){
   var outageBar = function(begin, end, origin, duration) {
-    return '<div class="down" '
+    return '<div class="down" data-bs-toggle="tooltip" '
               + 'style="left:' + (begin - origin) / duration * 100 + '%;width:' + (end - begin) / duration * 100 + '%" ' 
               + 'title="' + moment.duration(end-begin).humanize() + ' outage from '+ moment(begin).format('LLL') + ' to ' + moment(end).format('LLL') + '">'
          + '</div>';
   }
   var pauseBar = function(begin, end, origin, duration) {
-    return '<div class="pause" '
+    return '<div class="pause" data-bs-toggle="tooltip" '
               + 'style="left:' + (begin - origin) / duration * 100 + '%;width:' + (end - begin) / duration * 100 + '%" ' 
               + 'title="' + moment.duration(end-begin).humanize() + ' pause from '+ moment(begin).format('LLL') + ' to ' + moment(end).format('LLL') + '">'
          + '</div>';
@@ -14,7 +14,7 @@ var uptimeBar = (function(){
   var availabilityBar = function(begin, end, availability, origin, duration) {
     if (availability == 1) return '';
     var intensity = 1 - Math.pow(availability, 10) * 0.8;
-    return '<div class="down" style="opacity: ' + intensity + ';left:' + (begin - origin) / duration * 100 + '%;width:' + (end - begin) / duration * 100 + '%" ' 
+    return '<div class="down" data-bs-toggle="tooltip" style="opacity: ' + intensity + ';left:' + (begin - origin) / duration * 100 + '%;width:' + (end - begin) / duration * 100 + '%" ' 
               + 'title="' + (availability * 100).toFixed(3) + '% availability from '+ moment(begin).format('LL') + ' to ' + moment(end).format('LL') + '">'
          + '</div>'
   }
@@ -91,13 +91,13 @@ var uptimeBar = (function(){
 
     // hide not measured period
     if (from < firstChecked && firstChecked < to) {
-      ret += '<div style="background-color:white;left:0;width:' + (firstChecked - from) / duration * 100 + '%"></div>';
+      ret += '<div class="nodata" style="left:0;width:' + (firstChecked - from) / duration * 100 + '%"></div>';
     }
 
     // hide not yet measured period
     if (from < now && now < to) {
       // hide not yet measured period
-      ret += '<div style="background-color:white;right:0;width:' + (to - now) / duration * 100 + '%"></div>';
+      ret += '<div class="nodata" style="right:0;width:' + (to - now) / duration * 100 + '%"></div>';
     }
     ret += '</div>';
 
@@ -128,12 +128,12 @@ var uptimeBar = (function(){
     }
     if (from < origin && origin < to) {
       // hide not measured period
-      ret += '<div style="background-color:white;left:0;width:' + (origin - from) / duration * 100 + '%"></div>';
+      ret += '<div class="nodata" style="left:0;width:' + (origin - from) / duration * 100 + '%"></div>';
     }
     var now = Date.now();
     if (from < now && now < to) {
       // hide not yet measured period
-      ret += '<div style="background-color:white;right:0;width:' + (to - now) / duration * 100 + '%"></div>';
+      ret += '<div class="nodata" style="right:0;width:' + (to - now) / duration * 100 + '%"></div>';
     }
     ret += '</div>';
     return ret;

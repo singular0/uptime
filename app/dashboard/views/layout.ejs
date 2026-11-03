@@ -3,16 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Uptime</title>
+    <title><%= title ? title + ' · ' : '' %>Uptime</title>
+    <script src="<%= route %>/javascripts/colorMode.js"></script>
     <link rel="stylesheet" href="<%= route %>/vendor/bootstrap/bootstrap.min.css">
     <link rel="stylesheet" href="<%= route %>/vendor/bootstrap-icons/bootstrap-icons.min.css">
+    <%- renderCssTags(addedCss) %>
     <link rel="stylesheet" href="<%= route %>/stylesheets/style.css">
     <link rel="icon" href="<%= route %>/favicon.ico">
     <link rel="apple-touch-icon" href="<%= route %>/apple-touch-icon.png">
     <link rel="apple-touch-icon" sizes="72x72" href="<%= route %>/apple-touch-icon-ipad.png">
     <link rel="apple-touch-icon" sizes="114x114" href="<%= route %>/apple-touch-icon-iphone4.png">
-    <%- renderCssTags(addedCss) %>
     <script src="<%= route %>/vendor/jquery/jquery.min.js"></script>
+    <script src="<%= route %>/vendor/bootstrap/bootstrap.bundle.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
     var socket = io(); // connects to the host serving the page
@@ -25,69 +27,98 @@
     ejs.closeDelimiter = '}';
     </script>
     <script src="<%= route %>/javascripts/safeUrl.js"></script>
+    <script src="<%= route %>/javascripts/ui.js"></script>
   </head>
   <body>
-    <div class="container">
-      <nav class="navbar navbar-expand bg-dark rounded my-3" data-bs-theme="dark">
-        <div class="container-fluid">
-          <a class="navbar-brand" href="<%= route %>/events">Uptime</a>
-          <ul class="navbar-nav me-auto" id="mainNav">
-            <li class="nav-item"><a class="nav-link" href="<%= route %>/events">Events</a></li>
-            <li class="nav-item"><a class="nav-link" href="<%= route %>/checks">Checks</a></li>
-            <li class="nav-item"><a class="nav-link" href="<%= route %>/tags">Tags</a></li>
-            <li class="nav-item" id="new_events"><a class="nav-link" href="<%= route %>/events?highlightFrom=<%= Date.now() %>"></a></li>
-          </ul>
-          <ul class="navbar-nav" id="check_summary">
-            <li class="nav-item" id="all_up" style="display:none;"><span class="badge text-bg-success">Up</span><strong>0</strong></li>
-            <li class="nav-item" id="all_down" style="display: none;"><span class="badge text-bg-danger">Down</span><strong>0</strong></li>
-          </ul>
+    <nav class="navbar navbar-expand bg-body-tertiary border-bottom mb-4">
+      <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="<%= route %>/events"><i class="bi bi-activity text-primary"></i>Uptime</a>
+        <ul class="navbar-nav me-auto">
+          <% [['events', 'Events'], ['checks', 'Checks'], ['tags', 'Tags']].forEach(function(item) { var active = item[0] === navSection; %>
+          <li class="nav-item">
+            <a class="nav-link<%= active ? ' active' : '' %>"<% if (active) { %> aria-current="page"<% } %> href="<%= route %>/<%= item[0] %>" id="nav_<%= item[0] %>"><%= item[1] %><% if (item[0] === 'events') { %> <span class="badge rounded-pill text-bg-warning d-none" id="newEvents"></span><% } %></a>
+          </li>
+          <% }) %>
+        </ul>
+        <div class="d-flex align-items-center gap-2">
+          <a class="badge rounded-pill text-bg-success d-none" id="allUp" href="<%= route %>/checks"><i class="bi bi-check-circle-fill"></i> <span class="count">0</span> up</a>
+          <a class="badge rounded-pill text-bg-info d-none" id="allPaused" href="<%= route %>/checks"><i class="bi bi-pause-circle-fill"></i> <span class="count">0</span> paused</a>
+          <a class="badge rounded-pill text-bg-danger d-none" id="allDown" href="<%= route %>/checks"><i class="bi bi-x-circle-fill"></i> <span class="count">0</span> down</a>
         </div>
-      </nav>
-      <section>
-        <%- body %>
-      </section>
-      <footer class="footer">
-        <p class="float-end"><a href="#">Back to top</a></p>
-        <p><a href="https://github.com/singular0/uptime">Uptime <%= version %></a>, powered by <a href="https://nodejs.org/">Node.js</a>, <a href="https://www.mongodb.com/">MongoDB</a>, and <a href="https://getbootstrap.com/">Bootstrap</a>.</p>
-        <p>Code licensed under the <a href="https://github.com/singular0/uptime/blob/master/LICENSE">MIT License</a>. Check the <a href="https://github.com/singular0/uptime">Uptime GitHub repository</a> regularly for updates.</p>
-      </footer>
-    </div>
+        <ul class="navbar-nav ms-2">
+          <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Color mode">
+              <i class="bi bi-circle-half" id="themeIcon"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-value="light" data-theme-icon="bi-sun-fill"><i class="bi bi-sun-fill"></i> Light</button></li>
+              <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-value="dark" data-theme-icon="bi-moon-stars-fill"><i class="bi bi-moon-stars-fill"></i> Dark</button></li>
+              <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-value="auto" data-theme-icon="bi-circle-half"><i class="bi bi-circle-half"></i> Auto</button></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
+    <main class="container">
+      <%- body %>
+    </main>
+    <footer class="container d-flex flex-wrap justify-content-between gap-2 py-3 my-4 border-top small text-body-secondary">
+      <span>
+        <a class="link-secondary" href="https://github.com/singular0/uptime">Uptime <%= version %></a>
+        · <a class="link-secondary" href="https://github.com/singular0/uptime/blob/master/LICENSE">MIT License</a>
+      </span>
+      <a class="link-secondary" href="#">Back to top</a>
+    </footer>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toasts"></div>
     <script>
-    var nbNewEvents = 0;
-    var loadedAt = new Date();
     $(document).ready(function() {
-      var changeFavicon = function(red) {
+      var baseTitle = document.title;
+      var loadedAt = <%= Date.now() %>;
+      var nbNewEvents = 0;
+      var redFavicon = false;
+      var setFavicon = function(red) {
+        if (red === redFavicon) return;
+        redFavicon = red;
         $('head link[rel="icon"]').remove();
         $('head').append('<link rel="icon" href="<%= route %>/favicon' + (red ? '_red' : '') + '.ico">');
-      }
+      };
       var updateCounts = function() {
         $.getJSON('/api/checks/count', function(count) {
-          if (count.total > 0) {
-            $('#all_up').show().children('strong').text(count.up);
-          } else {
-            $('#all_up').hide();
-          }
-          if (count.down > 0) {
-            $('#all_down').show().children('strong').text(count.down);
-            changeFavicon(true);
-          } else {
-            $('#all_down').hide();
-            if (nbNewEvents > 0) {
-              changeFavicon(false);
-            }
-          }
+          $('#allUp').toggleClass('d-none', count.total == 0).find('.count').text(count.up);
+          $('#allPaused').toggleClass('d-none', !count.paused).find('.count').text(count.paused);
+          $('#allDown').toggleClass('d-none', count.down == 0).find('.count').text(count.down);
+          setFavicon(count.down > 0);
           if (nbNewEvents > 0) {
-            document.title = '(' + nbNewEvents +') Uptime';
-          };
+            document.title = '(' + nbNewEvents + ') ' + baseTitle;
+          }
         });
       };
-      socket.on('CheckEvent', function() {
+      socket.on('CheckEvent', function(event) {
         nbNewEvents++;
         updateCounts();
-        $('#check_summary').fadeOut().fadeIn().fadeOut().fadeIn();
-        $('#new_events a').html(nbNewEvents + ' new event' + (nbNewEvents > 1 ? 's' : '') + ' since ' + moment(loadedAt).format('LLL'));
+        // the events link highlights the events received since the page was loaded
+        $('#nav_events').attr('href', '<%= route %>/events?highlightFrom=' + loadedAt);
+        $('#newEvents')
+          .removeClass('d-none')
+          .text(nbNewEvents)
+          .attr('title', nbNewEvents + ' new event' + (nbNewEvents > 1 ? 's' : '') + ' since ' + moment(loadedAt).format('LLL'));
+        $.getJSON('/api/checks/' + event.check, function(check) {
+          var style = checkEventStyle(event);
+          showToast({
+            text: check.name + ' ' + describeCheckEvent(event),
+            href: '<%= route %>/checks/' + check._id,
+            icon: style.icon,
+            color: style.color,
+            delay: 10000
+          });
+        });
       });
       updateCounts();
+
+      // messages from the previous page, e.g. "Changes have been saved"
+      <%- jsonForScript(locals.info || []) %>.forEach(function(message) {
+        showToast({ text: message, icon: 'bi-check-circle-fill', color: 'success' });
+      });
     });
     </script>
   </body>

@@ -5,7 +5,7 @@ Unmodified copies of npm package builds, served by the dashboard at `/dashboard/
 | Library | Version | File(s) in the npm package | License |
 | --- | --- | --- | --- |
 | [jQuery](https://jquery.com/) | 4.0.0 | `jquery`: `dist/jquery.min.js` | MIT |
-| [Bootstrap](https://getbootstrap.com/) | 5.3.8 | `bootstrap`: `dist/css/bootstrap.min.css` (CSS only, no Bootstrap JS) | MIT |
+| [Bootstrap](https://getbootstrap.com/) | 5.3.8 | `bootstrap`: `dist/css/bootstrap.min.css`, `dist/js/bootstrap.bundle.min.js` (includes Popper) | MIT |
 | [Bootstrap Icons](https://icons.getbootstrap.com/) | 1.13.2 | `bootstrap-icons`: `font/bootstrap-icons.min.css`, `font/fonts/*` | MIT |
 | [Moment.js](https://momentjs.com/) | 2.31.0 | `moment`: `min/moment.min.js` | MIT |
 | [EJS](https://ejs.co/) | 7.0.2 | `ejs`: `ejs.min.js` (same version as the server-side `ejs` dependency) | Apache-2.0 |

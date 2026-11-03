@@ -4,58 +4,32 @@
 <script src="<%= route %>/javascripts/statNavigation.js"></script>
 <script src="<%= route %>/javascripts/statGraph.js"></script>
 <script src="<%= route %>/javascripts/uptimeBar.js"></script>
-<h1>
-  Tag "<%= tag.name %>"
-</h1>
-<div id="dateNavigation">
-  <div class="row">
-    <div class="col-10 offset-2">
-      <div class="title"></div>
-      <div class="timeline"></div>
-    </div>
-  </div>
-  <div class="row">
-    <div class="col-2">
-      <div class="btn-group zoom"></div>
-    </div>
-    <div class="col-10">
-      <div class="periods"></div>
-    </div>
+<div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-2 border-bottom">
+  <div class="me-auto d-flex align-items-center gap-2">
+    <i class="bi bi-tag fs-4 text-body-secondary" role="img" aria-label="Tag"></i>
+    <h1 class="h3 mb-0"><%= tag.name %></h1>
   </div>
 </div>
-<div id="sectionList" class="row">
-  <div class="col-2">
-    <nav id="secondaryNav" class="list-group">
-      <a class="list-group-item list-group-item-action" href="#availability">Availability<i class="bi bi-chevron-right"></i><br><strong class="availability"></strong>%</a>
-      <a class="list-group-item list-group-item-action" href="#events">Downtime<i class="bi bi-chevron-right"></i><br><strong class="downtime"></strong></a>
-      <a class="list-group-item list-group-item-action" href="#responseTime">Response Time<i class="bi bi-chevron-right"></i><br><strong class="avgRespTime"></strong>ms</a>
-      <a class="list-group-item list-group-item-action" href="#responsiveness">Responsiveness<i class="bi bi-chevron-right"></i><br><strong class="responsiveness"></strong>%</a>
-      <a class="list-group-item list-group-item-action" href="#checks">Checks<i class="bi bi-chevron-right"></i></a>
-      <a class="list-group-item list-group-item-action" href="#data">Data<i class="bi bi-chevron-right"></i></a>
-    </nav>
-  </div>
-  <div class="col-10">
-    <section id="availability">
-    <%- partial('_availability') %>
-    </section>
-    <section id="events">
-    <h2>Downtime</h2>
-    <%- partial('_events', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/events', route: route }) %>
-    </section>
-    <section id="responseTime">
-    <%- partial('_responseTime') %>
-    </section>
-    <section id="responsiveness">
-    <%- partial('_responsiveness') %>
-    </section>
-    <section id="checks">
-    <%- partial('_checks', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/checks/', route: route } ) %>
-    </section>
-    <section id="data">
-    <%- partial('_data', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/stats/', route: route } ) %>
-    </section>
-  </div>
-</div>
+<%- partial('_dateNavigation') %>
+<%- partial('_statCards') %>
+<section id="availability">
+  <%- partial('_availability') %>
+</section>
+<section id="events">
+  <%- partial('_downtime', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/events', route: route }) %>
+</section>
+<section id="responseTime">
+  <%- partial('_responseTime') %>
+</section>
+<section id="responsiveness">
+  <%- partial('_responsiveness') %>
+</section>
+<section id="checks">
+  <%- partial('_checks', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/checks/', route: route } ) %>
+</section>
+<section id="data">
+  <%- partial('_data', { url: '/api/tags/' + encodeURIComponent(tag.name) + '/stats/', route: route } ) %>
+</section>
 <script>
 var dateInterval = new DateInterval(
   '<%= interval.type %>',
@@ -65,10 +39,7 @@ var dateInterval = new DateInterval(
   'day'
 );
 jQuery(document).ready(function($) {
-  // highlight current section in main nav
-  $('#mainNav .nav-link').eq(2).addClass('active');
-
-  // initialize secondary navigation
+  // initialize the stat cards
   new StatNavigation(dateInterval);
 
   // initialize date navigation

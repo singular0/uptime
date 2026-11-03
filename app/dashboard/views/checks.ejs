@@ -1,40 +1,30 @@
 <script src="<%= route %>/javascripts/sortableTable.js"></script>
 <script src="<%= route %>/javascripts/uptimeBar.js"></script>
-<h1>Checks <small class="float-end text-body-secondary fs-5">last 24 hours</small></h1>
-<% if (info.length) { %>
-<div class="alert alert-success"><%= info %></div>
-<% } %>
-<div class="text-end">
-  <a class="btn btn-primary" href="<%= route %>/checks/new">Create check</a>
+<script src="<%= route %>/javascripts/checkState.js"></script>
+<div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-4 border-bottom">
+  <h1 class="h3 mb-0 me-auto">Checks</h1>
+  <span class="small text-body-secondary">Last 24 hours</span>
+  <a class="btn btn-primary" href="<%= route %>/checks/new"><i class="bi bi-plus-lg"></i> New check</a>
 </div>
-<table class="table" id="checks">
-  <thead>
-    <tr>
-      <th style="width:30%">Name</th>
-      <th style="width:20%">Status</th>
-      <th style="width:35%" title="Outage periods in the last 24h">Uptime</th>
-      <th style="width:15%" title="Average response time in the last 24h">Response Time</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+<div class="card overflow-hidden">
+  <table class="table table-hover align-middle" id="checks">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th class="w-50" data-bs-toggle="tooltip" title="Outages in the last 24 hours">Uptime</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Average response time in the last 24 hours">Response time</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 <script id="check_template" type="text/template">
 <tr>
   <td data-sort="{%= check.name %}">
-    <a href="{%=  route + '/checks/' + check._id %}">{%= check.name %}</a>
-    {% if (isSafeUrl(check.url)) { %}<a href="{%= check.url %}" target="_blank"><img src="{%= route %}/images/external-link-ltr-icon.png"></a>{% } %}
+    <a href="{%= route + '/checks/' + check._id %}">{%= check.name %}</a>{% if (isSafeUrl(check.url)) { %}&nbsp;<a class="link-secondary" href="{%= check.url %}" target="_blank" aria-label="Open {%= check.url %}"><i class="bi bi-box-arrow-up-right small"></i></a>{% } %}
   </td>
-  {% if (check.lastTested) { %}
-    {% if (check.isPaused) { %}
-  <td data-sort="{%= check.isUp ? check.uptime : -check.downtime %}"><span class="badge text-bg-info">paused</span> <span class="blue"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
-    {% } else if (check.isUp) { %}
-  <td data-sort="{%= check.uptime %}"><span class="badge text-bg-success">Up</span> <span class="green"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
-    {% } else { %}
-  <td data-sort="{%= -check.downtime %}"><span class="badge text-bg-danger">Down</span> <span class="red"> for <span title="{%= new Date(check.lastChanged) %}">{%= moment(check.lastChanged).fromNow(true) %}</span></span></td>
-    {% } %}
-  {% } else { %}
-  <td data-sort="0"><span class="badge text-bg-danger">down</span> <span class="badge text-bg-warning">new</span></td>
-  {% } %}
+  <td class="text-nowrap" data-sort="{%= !check.lastTested ? 0 : check.isUp ? check.uptime : -check.downtime %}">{%- checkStatusHtml(check) %}</td>
   {% if (check.qos) { %}
   <td data-sort="{%= check.qos.availability %}">
       {%- uptimeBar('check', {
@@ -43,33 +33,37 @@
         periods: check.qos.outages || [],
         check: check
        }) %}</td>
-  <td data-sort="{%= check.qos.responseTime %}">{%= Math.round(check.qos.responseTime) %}ms</td>
+  <td class="text-end" data-sort="{%= check.qos.responseTime %}">{%= Math.round(check.qos.responseTime) %} ms</td>
   {% } else { %}
-  <td data-sort="0">-</td>
-  <td data-sort="0">-</td>
+  <td data-sort="0"></td>
+  <td class="text-end text-body-secondary" data-sort="0">–</td>
   {% } %}
+</tr>
+</script>
+<script id="no_check_template" type="text/template">
+<tr>
+  <td colspan="4" class="text-center text-body-secondary py-5">
+    No checks yet. <a href="{%= route %}/checks/new">Create your first check</a>.
+  </td>
 </tr>
 </script>
 <script>
 jQuery(document).ready(function($) {
-  // highlight current section in main nav
-  $('#mainNav .nav-link').eq(1).addClass('active');
-
   // make the check table sortable
   var checksTable = new SortableTable(document.getElementById('checks'), { column: 1 });
 
   // Fill in the table
   var check_template = ejs.compile(document.getElementById('check_template').innerHTML);
+  var no_check_template = ejs.compile(document.getElementById('no_check_template').innerHTML);
   var updateChecks = function(checks) {
     var updateChecksSection = function(checks) {
       var lines = [];
-      var lastTest = 0;
       $.each(checks, function(key, check) {
-        if (new Date(check.lastTested) > lastTest) {
-          lastTest = new Date(check.lastTested);
-        }
         lines.push(check_template({ check: check, route: '<%= route %>' }));
       });
+      if (!lines.length) {
+        lines.push(no_check_template({ route: '<%= route %>' }));
+      }
       $('#checks tbody').html(lines.join(''));
       checksTable.sort();
     }
@@ -83,11 +77,5 @@ jQuery(document).ready(function($) {
   updateChecks(<%- jsonForScript(checks) %>);
   socket.on('CheckEvent', function(data) { updateChecks() });
   window.setInterval(updateChecks, 5 * 60 * 1000); // refresh every 5 minutes to update the qos scores
-
-  // hide alert after 5s
-  window.setTimeout(function() {
-    $('h1 + div.alert').slideUp();
-  }, 5000);
-
 });
 </script>

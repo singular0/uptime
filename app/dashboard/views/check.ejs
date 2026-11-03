@@ -5,62 +5,40 @@
 <script src="<%= route %>/javascripts/statNavigation.js"></script>
 <script src="<%= route %>/javascripts/statGraph.js"></script>
 <script src="<%= route %>/javascripts/uptimeBar.js"></script>
-<div class="float-end">
-  <span id="check_24h"></span>
-  <a href="<%= route %>/checks/<%= check._id %>/edit" class="btn btn-primary">Edit</a>
-</div>
-<h1>
-  Check "<%= check.name %>"
-  <% if (isSafeUrl(check.url)) { %><a href="<%= check.url %>" target="_blank"><img src="<%= route %>/images/external-link-ltr-icon.png"></a><% } %>
-</h1>
-<% if (info.length) { %>
-<div class="alert alert-success"><%= info %></div>
-<% } %>
-<div id="dateNavigation">
-  <div class="row">
-    <div class="col-10 offset-2">
-      <div class="title"></div>
-      <div class="timeline"></div>
+<div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-2 border-bottom">
+  <div class="me-auto">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+      <h1 class="h3 mb-0"><%= check.name %></h1>
+      <span id="checkStatus"></span>
     </div>
+    <% if (isSafeUrl(check.url)) { %>
+    <a class="link-secondary small" href="<%= check.url %>" target="_blank"><%= check.url %> <i class="bi bi-box-arrow-up-right"></i></a>
+    <% } else { %>
+    <span class="small text-body-secondary"><%= check.url %></span>
+    <% } %>
   </div>
-  <div class="row">
-    <div class="col-2">
-      <div class="btn-group zoom"></div>
-    </div>
-    <div class="col-10">
-      <div class="periods"></div>
-    </div>
-  </div>
+  <% if (check.lastTested) { %>
+  <button type="button" class="btn btn-outline-secondary" id="pauseButton"><i class="bi bi-<%= check.isPaused ? 'play-fill' : 'pause-fill' %>"></i> <span><%= check.isPaused ? 'Resume' : 'Pause' %></span></button>
+  <% } %>
+  <a href="<%= route %>/checks/<%= check._id %>/edit" class="btn btn-primary"><i class="bi bi-pencil"></i> Edit</a>
 </div>
-<div id="sectionList" class="row">
-  <div class="col-2">
-    <nav id="secondaryNav" class="list-group">
-      <a class="list-group-item list-group-item-action" href="#availability" title="Percentage of uptime over the period">Availability<i class="bi bi-chevron-right"></i><br><strong class="availability"></strong>%</a>
-      <a class="list-group-item list-group-item-action" href="#events">Downtime<i class="bi bi-chevron-right"></i><br><strong class="downtime"></strong></a>
-      <a class="list-group-item list-group-item-action" href="#responseTime" title="Average response time over the period">Response Time<i class="bi bi-chevron-right"></i><br><strong class="avgRespTime"></strong>ms</a>
-      <a class="list-group-item list-group-item-action" href="#responsiveness" title="Percentage of pings above slow treshold over the period">Responsiveness<i class="bi bi-chevron-right"></i><br><strong class="responsiveness"></strong>%</a>
-      <a class="list-group-item list-group-item-action" href="#data">Data<i class="bi bi-chevron-right"></i></a>
-    </nav>
-  </div>
-  <div class="col-10">
-    <section id="availability">
-    <%- partial('_availability') %>
-    </section>
-    <section id="events">
-    <h2>Downtime</h2>
-    <%- partial('_events', { url: '/api/checks/' + check._id + '/events', route: route }) %>
-    </section>
-    <section id="responseTime">
-    <%- partial('_responseTime') %>
-    </section>
-    <section id="responsiveness">
-    <%- partial('_responsiveness') %>
-    </section>
-    <section id="data">
-    <%- partial('_data', { url: '/api/checks/' + check._id + '/stats/', route: route } ) %>
-    </section>
-  </div>
-</div>
+<%- partial('_dateNavigation') %>
+<%- partial('_statCards') %>
+<section id="availability">
+  <%- partial('_availability') %>
+</section>
+<section id="events">
+  <%- partial('_downtime', { url: '/api/checks/' + check._id + '/events', route: route }) %>
+</section>
+<section id="responseTime">
+  <%- partial('_responseTime') %>
+</section>
+<section id="responsiveness">
+  <%- partial('_responsiveness') %>
+</section>
+<section id="data">
+  <%- partial('_data', { url: '/api/checks/' + check._id + '/stats/', route: route } ) %>
+</section>
 <script>
 var dateInterval = new DateInterval(
   '<%= interval.type %>',
@@ -70,26 +48,19 @@ var dateInterval = new DateInterval(
   'hour'
 );
 jQuery(document).ready(function($) {
-  // highlight current section in main nav
-  $('#mainNav .nav-link').eq(1).addClass('active');
-  
   // update check state live
   updateCheckState(<%- jsonForScript(check) %>);
   socket.on('CheckEvent', function() {
     $.getJSON('/api/checks/<%= check._id %>', updateCheckState);
   });
-  
-  // initialize secondary navigation
+  initPauseButton('<%= check._id %>');
+
+  // initialize the stat cards
   new StatNavigation(dateInterval);
 
   // initialize date navigation
   new DateNavigation(dateInterval, 'check', <%- jsonForScript(check) %>);
-  
-  // hide alert after 5s
-  window.setTimeout(function() {
-    $('h1 + div.alert').slideUp();
-  }, 5000);
-  
+
   // update stats for each ping if looking at the current hour
   socket.emit('set check', '<%= check._id %>');
   socket.on('ping', function(ping) {
@@ -98,7 +69,7 @@ jQuery(document).ready(function($) {
       dateInterval.refreshData();
     }
   });
-  
+
   // update stats every 15 minutes if looking at the current moment
   window.setInterval(function() {
     var now = Date.now();

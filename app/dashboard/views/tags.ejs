@@ -1,43 +1,56 @@
-<h1>Tags <small class="float-end text-body-secondary fs-5">last 24 hours</small></h1>
-<table class="table chart" id="tags">
-  <thead>
-    <tr>
-      <th style="width:30%">Name</th>
-      <th style="width:20%" title="Percentage of all pings up in the last 24h">Availability</th>
-      <th style="width:35%" title="Outage periods in the last 24h">Uptime</th>
-      <th style="width:15%" title="Average response time in the last 24h">Response Time</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
 <script src="<%= route %>/javascripts/sortableTable.js"></script>
 <script src="<%= route %>/javascripts/uptimeBar.js"></script>
+<div class="d-flex flex-wrap align-items-center gap-3 pb-3 mb-4 border-bottom">
+  <h1 class="h3 mb-0 me-auto">Tags</h1>
+  <span class="small text-body-secondary">Last 24 hours</span>
+</div>
+<div class="card overflow-hidden">
+  <table class="table table-hover align-middle" id="tags">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Percentage of pings up in the last 24 hours">Availability</th>
+        <th class="w-50" data-bs-toggle="tooltip" title="Outages in the last 24 hours">Uptime</th>
+        <th class="text-end" data-bs-toggle="tooltip" title="Average response time in the last 24 hours">Response time</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
 <script id="tag_template" type="text/template">
 <tr>
-  <td data-sort="{%= tag.name %}"><a href="{%= route + '/tags/' + encodeURIComponent(tag.name) %}">{%= tag.name %}</a></td>
-  <td data-sort="{%= tag.availability %}">{%= (tag.availability * 100).toFixed(3).replace('.000', '') %}%</td>
+  <td data-sort="{%= tag.name %}"><i class="bi bi-tag text-body-secondary me-1"></i><a href="{%= route + '/tags/' + encodeURIComponent(tag.name) %}">{%= tag.name %}</a></td>
+  <td class="text-end" data-sort="{%= tag.availability %}">{%= (tag.availability * 100).toFixed(3).replace('.000', '') %}%</td>
   <td data-sort="{%= tag.availability %}">{%- uptimeBar('tag', {
         from: Date.now() - 24 * 60 * 60 * 1000,
         to: Date.now(),
         origin: new Date(tag.firstTested).valueOf(),
         periods: tag.outages
       }) %}</td>
-  <td data-sort="{%= tag.responseTime %}">{%= Math.round(tag.responseTime) %}ms</td>
+  <td class="text-end" data-sort="{%= tag.responseTime %}">{%= Math.round(tag.responseTime) %} ms</td>
+</tr>
+</script>
+<script id="no_tag_template" type="text/template">
+<tr>
+  <td colspan="4" class="text-center text-body-secondary py-5">
+    No tags yet. Add tags to a check to see stats for a group of checks.
+  </td>
 </tr>
 </script>
 <script>
 jQuery(document).ready(function($) {
-  $('#mainNav .nav-link').eq(2).addClass('active');
   var tagsTable = new SortableTable(document.getElementById('tags'), { column: 0 });
   var tag_template = ejs.compile(document.getElementById('tag_template').innerHTML);
+  var no_tag_template = ejs.compile(document.getElementById('no_tag_template').innerHTML);
   var updateTags = function(tags) {
     var updateTagsSection = function(tags) {
       var lines = [];
-      var lastUpdated;
       $.each(tags, function(key, tag) {
         lines.push(tag_template({ tag: tag, route: '<%= route %>' }));
-        lastUpdated = tag.lastUpdated;
       });
+      if (!lines.length) {
+        lines.push(no_tag_template({}));
+      }
       $('#tags tbody').html(lines.join(''));
       tagsTable.sort();
     }
