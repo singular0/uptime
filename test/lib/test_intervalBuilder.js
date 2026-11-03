@@ -4,54 +4,74 @@ const IntervalBuilder = require('../../lib/intervalBuilder');
 const Ping = require('../../models/ping');
 const Check = require('../../models/check');
 const CheckEvent = require('../../models/checkEvent');
+const { clear } = require('../helpers');
 
-let check1, check2, now; // fixtures
-
-const removeAll = function() {
-  return Promise.all([
-    Ping.collection.deleteMany({}),
-    Check.collection.deleteMany({}),
-    CheckEvent.collection.deleteMany({})
-  ]);
-};
+const PAUSED = -1;
+const DOWN = 0;
 
 describe('intervalBuilder', function() {
 
-  before(removeAll);
+  // fixtures: timestamps are relative to now, in milliseconds
+  let now, flapping, neverTested, stillDown, paused;
+
+  const createPings = async function(check, pings) {
+    for (const [offset, isUp] of pings) {
+      await Ping.createForCheck(isUp, now + offset, 100, check, 'dummy', isUp ? '' : 'error', null);
+    }
+  };
+
+  const build = function(targets, begin, end) {
+    const builder = new IntervalBuilder();
+    targets.forEach(function(target) { builder.addTarget(target); });
+    return builder.build(now + begin, now + end);
+  };
+
+  // intervals relative to now, easier to read in assertions
+  const relative = function(intervals) {
+    return intervals.map(function(interval) { return [interval[0] - now, interval[1] - now, interval[2]]; });
+  };
 
   before(function() {
+    return clear(Ping, Check, CheckEvent);
+  });
+
+  before(async function() {
     now = Date.now();
+    // events: down at -3000, up at -1000, down at +2000, up at +3000
+    flapping = await new Check({ name: 'flapping' }).save();
+    await createPings(flapping, [[-3000, false], [-2000, false], [-1000, true], [0, true], [1000, true], [2000, false], [3000, true]]);
+
+    neverTested = await new Check({ name: 'never tested' }).save();
+
+    // events: up at -3000, down at -2500, up at -2000, down at -1000; last tested at -500
+    stillDown = await new Check({ name: 'still down' }).save();
+    await createPings(stillDown, [[-3000, true], [-2500, false], [-2000, true], [-1000, false], [-500, false]]);
+
+    // paused events are created by the API, not by pings
+    paused = await new Check({ name: 'paused', firstTested: new Date(now - 3000), lastTested: new Date(now), isUp: true }).save();
+    await CheckEvent.insertMany([
+      { check: paused._id, timestamp: new Date(now - 3000), message: 'up' },
+      { check: paused._id, timestamp: new Date(now - 2000), message: 'paused' },
+      { check: paused._id, timestamp: new Date(now - 1000), message: 'up' }
+    ]);
   });
 
-  before(async function() {
-    check1 = new Check();
-    await check1.save();
-    await Ping.createForCheck(false, now - 3000, 100, check1, 'dummy1', '', null);
-    await Ping.createForCheck(false, now - 2000, 100, check1, 'dummy2', '', null);
-    await Ping.createForCheck(true,  now - 1000, 100, check1, 'dummy3', '', null);
-    await Ping.createForCheck(true,  now,        100, check1, 'dummy4', '', null);
-    await Ping.createForCheck(true,  now + 1000, 100, check1, 'dummy5', '', null);
-    await Ping.createForCheck(false, now + 2000, 100, check1, 'dummy6', '', null);
-    await Ping.createForCheck(true,  now + 3000, 100, check1, 'dummy7', '', null);
-  });
-
-  before(async function() {
-    check2 = new Check();
-    await check2.save();
+  after(function() {
+    return clear(Ping, Check, CheckEvent);
   });
 
   describe('addTarget', function() {
 
     it('should accept Check objects', async function() {
       const builder = new IntervalBuilder();
-      builder.addTarget(check1);
+      builder.addTarget(flapping);
       await builder.determineInitialState(now);
       builder.currentState.should.eql(1);
     });
 
     it('should accept Check identifiers', async function() {
       const builder = new IntervalBuilder();
-      builder.addTarget(check1._id);
+      builder.addTarget(flapping._id);
       await builder.determineInitialState(now);
       builder.currentState.should.eql(1);
     });
@@ -62,57 +82,81 @@ describe('intervalBuilder', function() {
 
     it('should set initial state to PAUSED for new Checks', async function() {
       const builder = new IntervalBuilder();
-      builder.addTarget(check2);
+      builder.addTarget(neverTested);
       await builder.determineInitialState(now);
-      builder.currentState.should.eql(-1);
+      builder.currentState.should.eql(PAUSED);
     });
 
-    it('should set the initial state according to the latest ping', async function() {
-      const builder = new IntervalBuilder(check1);
-      builder.addTarget(check1);
-      await builder.determineInitialState(now);
-      builder.currentState.should.eql(1);
+    it('should set the initial state according to the latest event', async function() {
+      const builder = new IntervalBuilder();
+      builder.addTarget(flapping);
+      await builder.determineInitialState(now - 2000);
+      builder.currentState.should.eql(DOWN);
     });
 
   });
 
   describe('#build', function() {
 
-    it('should return a full pause array when there is no ping at all', async function() {
-      const builder = new IntervalBuilder();
-      builder.addTarget(check2);
-      const { intervals } = await builder.build(now, now + 1000);
-      intervals.should.eql([[now, now + 1000, -1]]);
+    it('should return no interval and no tested time when the check was never tested', async function() {
+      const result = await build([neverTested], 0, 1000);
+      result.should.eql({ intervals: [], downtime: 0, duration: 0 });
     });
 
-    it('should return an empty array when there is no down ping', async function() {
-      const builder = new IntervalBuilder();
-      builder.addTarget(check1);
-      const { intervals } = await builder.build(now + 3000, now + 6000);
-      intervals.should.eql([]);
+    it('should return no interval when the check stays up', async function() {
+      const result = await build([flapping], -1000, 1000);
+      result.should.eql({ intervals: [], downtime: 0, duration: 2000 });
     });
 
-    it('should return a period ending at the end of the lookup period when the latest ping is down', async function() {
-      const builder = new IntervalBuilder();
-      builder.addTarget(check1);
-      const { intervals } = await builder.build(now - 2500, now - 2000);
-      intervals.should.eql([ [now - 2500, now - 2000, 0] ]);
+    it('should close the outage at the end of the period when the check is down at the end, even if it is up now', async function() {
+      const { intervals, downtime, duration } = await build([flapping], -2500, -2000);
+      relative(intervals).should.eql([[-2500, -2000, DOWN]]);
+      downtime.should.eql(500);
+      duration.should.eql(500);
     });
 
     it('should return an outage period even if the state at the beginning and at the end are up', async function() {
-      const builder = new IntervalBuilder();
-      builder.addTarget(check1);
-      const { intervals } = await builder.build(now - 1000, now + 3000);
-      intervals.should.eql([ [ now + 2000, now + 3000, 0]]);
+      const { intervals, downtime, duration } = await build([flapping], -1000, 3000);
+      relative(intervals).should.eql([[2000, 3000, DOWN]]);
+      downtime.should.eql(1000);
+      duration.should.eql(4000);
     });
 
-    it('should return several periods when an uptime period lies in the middle of the interval', async function() {
-      const builder = new IntervalBuilder();
-      builder.addTarget(check1);
-      const { intervals } = await builder.build(now - 4000, now + 3000);
-      intervals.should.eql([ [now - 4000, now - 3000, -1], [now - 3000, now - 1000, 0], [now + 2000, now + 3000, 0] ]);
+    it('should return several outage periods, and ignore the time before the first test', async function() {
+      const { intervals, downtime, duration } = await build([flapping], -4000, 3000);
+      relative(intervals).should.eql([[-3000, -1000, DOWN], [2000, 3000, DOWN]]);
+      downtime.should.eql(3000);
+      duration.should.eql(6000);
     });
+
+    it('should ignore the time after the latest test', async function() {
+      const { intervals, downtime, duration } = await build([stillDown], -1500, 1000);
+      relative(intervals).should.eql([[-1000, -500, DOWN]]);
+      downtime.should.eql(500);
+      duration.should.eql(1000);
+    });
+
+    it('should not count the up time between two outages as downtime', async function() {
+      const { intervals, downtime, duration } = await build([stillDown], -3000, 1000);
+      relative(intervals).should.eql([[-2500, -2000, DOWN], [-1000, -500, DOWN]]);
+      downtime.should.eql(1000);
+      duration.should.eql(2500);
+    });
+
+    it('should return pause periods, and not count them as tested time', async function() {
+      const { intervals, downtime, duration } = await build([paused], -3000, 0);
+      relative(intervals).should.eql([[-2000, -1000, PAUSED]]);
+      downtime.should.eql(0);
+      duration.should.eql(2000);
+    });
+
+    it('should consider several targets down as soon as one of them is down', async function() {
+      const alwaysUp = await new Check({ name: 'always up' }).save();
+      await createPings(alwaysUp, [[-3000, true], [3000, true]]);
+      const { intervals } = await build([flapping, alwaysUp], -4000, 3000);
+      relative(intervals).should.eql([[-3000, -1000, DOWN], [2000, 3000, DOWN]]);
+    });
+
   });
 
-  after(removeAll);
 });

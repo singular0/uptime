@@ -3,3 +3,6 @@ mongodb:
   database: uptime-test
   user:     root
 autoStartMonitor: false # tests must never poll a running instance
+plugins: # without the console plugin, which logs every ping and event
+  - ./plugins/patternMatcher
+  - ./plugins/httpOptions

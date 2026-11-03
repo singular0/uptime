@@ -85,6 +85,9 @@ Check.methods.togglePause = function() {
 Check.methods.setLastTest = function(status, time, error) {
   const now = time ? new Date(time) : new Date();
   const mustNotifyEvent = this.mustNotifyEvent(status);
+  // state before this test, to measure the downtime when the check comes back up
+  const wasDown = this.isUp === false;
+  const previousChange = this.lastChanged;
 
   if (!this.firstTested) {
     this.firstTested = now;
@@ -107,9 +110,9 @@ Check.methods.setLastTest = function(status, time, error) {
       message: status ? 'up' : 'down',
       details: error
     });
-    if (status && this.lastChanged && this.isUp != undefined) {
+    if (status && wasDown && previousChange) {
       // Check comes back up
-      event.downtime = now.getTime() - this.lastChanged.getTime();
+      event.downtime = now.getTime() - previousChange.getTime();
     }
     // errors are logged and never reject, see Ping.createForCheck()
     this.$locals.lastEventSave = event.save().catch(function(err) { console.error(err); });

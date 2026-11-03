@@ -58,4 +58,46 @@ describe('populateFromDirtyCheck', function() {
     assert.equal(checkWithoutName.url, 'http://www.url2.fr');
   });
 
+  it('should guess the poller type from the url', function() {
+    checkWithName.populateFromDirtyCheck({url:'https://www.new-url.fr'}, pollerCollection);
+    assert.equal(checkWithName.type, 'https');
+    checkWithName.populateFromDirtyCheck({url:'udp://127.0.0.1:1234'}, pollerCollection);
+    assert.equal(checkWithName.type, 'udp');
+  });
+
+  it('should use the given poller type if it matches the url', function() {
+    checkWithName.populateFromDirtyCheck({url:'http://www.new-url.fr', type:'webpagetest'}, pollerCollection);
+    assert.equal(checkWithName.type, 'webpagetest');
+  });
+
+  it('should throw an error if the poller type does not match the url', function() {
+    assert.throws(function() {
+      checkWithName.populateFromDirtyCheck({url:'http://www.new-url.fr', type:'https'}, pollerCollection);
+    }, /mismatch/);
+  });
+
+  it('should throw an error if the poller type cannot be guessed from the url', function() {
+    assert.throws(function() {
+      checkWithName.populateFromDirtyCheck({url:'ftp://www.new-url.fr'}, pollerCollection);
+    }, /Unable to determine poller type/);
+  });
+
+  it('should throw an error if there is no url', function() {
+    assert.throws(function() {
+      new Check().populateFromDirtyCheck({name:'new-name'}, pollerCollection);
+    }, /URL must be defined/);
+  });
+
+  it('should convert the interval from seconds to milliseconds', function() {
+    checkWithName.populateFromDirtyCheck({interval:'30'}, pollerCollection);
+    assert.equal(checkWithName.interval, 30000);
+    checkWithName.populateFromDirtyCheck({}, pollerCollection);
+    assert.equal(checkWithName.interval, 30000);
+  });
+
+  it('should convert the tags from a comma separated string', function() {
+    checkWithName.populateFromDirtyCheck({tags:'foo, bar'}, pollerCollection);
+    assert.deepEqual(checkWithName.tags.toObject(), ['foo', 'bar']);
+  });
+
 });

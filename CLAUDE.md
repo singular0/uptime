@@ -30,7 +30,7 @@ npx mocha test/unit/check.js                        # single file
 npx mocha test/unit/check.js -g "should update object"   # single test
 ```
 
-`test/functional/` starts the full app on port 3000. `config/test.yaml` disables the monitor. Three `intervalBuilder #build` tests have failed since upstream commit `f50eb38` (2013). That commit stopped closing the last interval at the end of the period and started trimming paused intervals to `firstTested`, but the tests were never updated.
+Suites live in `test/functional/` (REST API and the monitor end to end, through the full app), `test/lib/` (models and libraries, against MongoDB), `test/plugins/` and `test/unit/` (no database). Shared helpers are in `test/helpers.js`: `listen(handler)` starts a server on a random port, `request()` sends JSON with `fetch`, `clear(...models)` empties collections, and `eventually()` retries assertions on side effects that the code doesn't await. Tests never use fixed ports and never reach the network. `config/test.yaml` disables the monitor and the console plugin, and `test/setup.js` unsets `http_proxy`/`https_proxy`.
 
 To get sample data for the dashboard, see `fixtures/README.md`: run `node fixtures/populate.js`, then `node fixtures/computeStats.js`, then `node fixtures/dummyTarget.js`.
 
@@ -51,7 +51,7 @@ The system runs as three cooperating pieces. They can share one process (`node a
    This split lets it run in another process, or in several datacenters with distinct `monitor.name` values.
 3. **Analyzer** (`lib/analyzer.js`, started inside `app.js`): runs on timers. It calls `lib/qosAggregator.js` to roll pings up into `Check{Hourly,Daily,Monthly,Yearly}Stat` and `Tag*Stat` collections, and it prunes old pings and events (`pingHistory`).
 
-**Data flow:** `POST /pings` → `Ping.createForCheck()` (`models/ping.js`) → `check.setLastTest()` (`models/check.js`). That method decides via `mustNotifyEvent()`/`alertTreshold` (sic) whether to create a `CheckEvent` (up/down). `createForCheck()` awaits that event save through `check.$locals.lastEventSave`. Notifications such as email, console and sockets all hang off `CheckEvent.on('afterInsert')`. `lib/intervalBuilder.js` rebuilds up/down/paused intervals from `CheckEvent`s for uptime reporting.
+**Data flow:** `POST /pings` → `Ping.createForCheck()` (`models/ping.js`) → `check.setLastTest()` (`models/check.js`). That method decides via `mustNotifyEvent()`/`alertTreshold` (sic) whether to create a `CheckEvent` (up/down). `createForCheck()` awaits that event save through `check.$locals.lastEventSave`. Notifications such as email, console and sockets all hang off `CheckEvent.on('afterInsert')`. `lib/intervalBuilder.js` rebuilds up/down/paused intervals from `CheckEvent`s for uptime reporting. For a single check, it closes the interval still open at the end of the period, and clips the intervals, the downtime and the tested time to `[firstTested, lastTested]`. For a tag (several targets), the downtime is all or nothing, based on the state at the end of the period.
 
 **Pollers** (`lib/pollers/`): each poller type is a class with a static `type` that extends `basePoller.js`. They are registered in `pollerCollection.js` (http, https, udp, webpagetest), and `check.type` selects one. A poller is constructed with `(target, timeout, callback)` and calls back `(err, time, res, details)`.
 

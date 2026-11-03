@@ -11,7 +11,9 @@ Uptime Changelog
 * Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed
 * Fix relative redirects in HTTP and HTTPS pollers (now resolved against the current URL, port and protocol included)
 * Fix plugins receiving an undefined socket.io instance in `initWebApp()`
-* `npm test` now runs all test suites against the `uptime-test` database
+* Fix hourly, daily, monthly and yearly stats ignoring an outage still in progress at the end of the period once the check is back up, and counting the up time between two outages as downtime
+* Fix "up" events always having a zero downtime, so that notifications never said how long the check was down
+* `npm test` now runs all test suites against the `uptime-test` database, and covers the REST API, the monitor, the pollers and the bundled plugins
 
 To be released
 --------------

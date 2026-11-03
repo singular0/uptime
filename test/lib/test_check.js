@@ -1,15 +1,115 @@
 const should = require('should');
 const mongoose = require('../../bootstrap');
 const Check = require('../../models/check');
+const CheckEvent = require('../../models/checkEvent');
+const CheckHourlyStat = require('../../models/checkHourlyStat');
+const Ping = require('../../models/ping');
+const { clear } = require('../helpers');
+
+const minute = 60 * 1000;
 
 describe('Check', function() {
 
-  before(function() {
-    return Check.collection.deleteMany({});
+  beforeEach(function() {
+    return clear(Check, CheckEvent, CheckHourlyStat, Ping);
   });
 
   after(function() {
-    return Check.collection.deleteMany({});
+    return clear(Check, CheckEvent, CheckHourlyStat, Ping);
+  });
+
+  describe('#togglePause()', function() {
+
+    it('should pause and restart the check', function() {
+      const check = new Check({ isUp: false, lastChanged: new Date(0) });
+      check.togglePause();
+      check.isPaused.should.be.true();
+      check.isUp.should.be.false();
+      check.lastChanged.getTime().should.be.above(0);
+      check.togglePause();
+      check.isPaused.should.be.false();
+      should(check.isUp).be.undefined(); // the status is unknown until the next ping
+    });
+
+  });
+
+  describe('.convertTags()', function() {
+
+    it('should split a comma separated string', function() {
+      Check.convertTags('foo, bar ,baz').should.eql(['foo', 'bar', 'baz']);
+      Check.convertTags('').should.eql([]);
+    });
+
+    it('should keep arrays unchanged', function() {
+      Check.convertTags(['foo', 'bar']).should.eql(['foo', 'bar']);
+    });
+
+  });
+
+  describe('.getAllTags()', function() {
+
+    it('should return the tags of all checks without duplicates', async function() {
+      await Check.create([{ tags: ['foo', 'bar'] }, { tags: ['bar', 'baz'] }, { tags: [] }]);
+      (await Check.getAllTags()).sort().should.eql(['bar', 'baz', 'foo']);
+    });
+
+    it('should return an empty array when there is no tag', async function() {
+      (await Check.getAllTags()).should.eql([]);
+    });
+
+  });
+
+  describe('#updateUptime()', function() {
+
+    it('should compute the status since the latest ping with the opposite status', async function() {
+      const now = Date.now();
+      const check = await new Check({ name: 'check' }).save();
+      await Ping.create([
+        { check: check._id, timestamp: new Date(now - 3 * minute), isUp: true },
+        { check: check._id, timestamp: new Date(now - 2 * minute), isUp: false },
+        { check: check._id, timestamp: new Date(now - minute), isUp: false }
+      ]);
+      await check.updateUptime();
+      const saved = await Check.findById(check._id);
+      saved.isUp.should.be.false();
+      saved.lastTested.getTime().should.eql(now - minute);
+      saved.lastChanged.getTime().should.eql(now - 3 * minute);
+      saved.downtime.should.eql(2 * minute);
+      saved.uptime.should.eql(0);
+    });
+
+    it('should use the first ping when the status never changed', async function() {
+      const now = Date.now();
+      const check = await new Check({ name: 'check' }).save();
+      await Ping.create([
+        { check: check._id, timestamp: new Date(now - 3 * minute), isUp: true },
+        { check: check._id, timestamp: new Date(now - minute), isUp: true }
+      ]);
+      await check.updateUptime();
+      const saved = await Check.findById(check._id);
+      saved.isUp.should.be.true();
+      saved.uptime.should.eql(2 * minute);
+    });
+
+  });
+
+  describe('#deleteOne()', function() {
+
+    it('should remove the pings, events and stats of the check only', async function() {
+      const [check, other] = await Check.create([{ name: 'deleted' }, { name: 'kept' }]);
+      for (const c of [check, other]) {
+        await Ping.create({ check: c._id, isUp: true });
+        await CheckEvent.create({ check: c._id, message: 'up' });
+        await CheckHourlyStat.create({ check: c._id, timestamp: new Date() });
+      }
+      await check.deleteOne();
+      (await Check.find()).map(function(c) { return c.name; }).should.eql(['kept']);
+      for (const model of [Ping, CheckEvent, CheckHourlyStat]) {
+        const remaining = await model.find();
+        remaining.map(function(doc) { return String(doc.check); }).should.eql([other.id]);
+      }
+    });
+
   });
 
   describe('.needingPoll()', function() {
