@@ -12,6 +12,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY . .
 
 USER node
-EXPOSE 8082
+EXPOSE 8080
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "app.js"]

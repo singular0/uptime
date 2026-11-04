@@ -28,7 +28,7 @@ Features
 Running With Docker
 -------------------
 
-Uptime is published as a Docker image, `ghcr.io/singular0/uptime`. Each `vX.Y.Z` release is tagged `X.Y.Z`, `X.Y`, `X` and `latest`. The image runs the webapp and the monitor (`node app.js`) with `NODE_ENV=production` on port 8082.
+Uptime is published as a Docker image, `ghcr.io/singular0/uptime`. Each `vX.Y.Z` release is tagged `X.Y.Z`, `X.Y`, `X` and `latest`. The image runs the webapp and the monitor (`node app.js`) with `NODE_ENV=production` on port 8080.
 
 Uptime stores its data in MongoDB 4.4 or later. This `compose.yaml` file runs Uptime with a MongoDB server:
 
@@ -45,7 +45,7 @@ services:
     depends_on:
       - mongo
     ports:
-      - '8082:8082'
+      - '8080:8080'
     environment:
       NODE_CONFIG: '{"mongodb":{"server":"mongo"}}'
 volumes:
@@ -61,7 +61,7 @@ $ docker compose up -d
 To use an existing MongoDB server instead, run the image on its own:
 
 ```sh
-$ docker run -d -p 8082:8082 \
+$ docker run -d -p 8080:8080 \
     -e NODE_CONFIG='{"mongodb":{"connectionString":"mongodb://mongo.example.com/uptime"}}' \
     ghcr.io/singular0/uptime:4
 ```
@@ -77,7 +77,7 @@ To change the configuration (see [Configuring](#configuring)), pass the settings
 
 Mount the single file, not the whole directory, so that the image keeps `default.yaml`. Settings in `NODE_CONFIG` take precedence over the file.
 
-Uptime listens on the port of the `url` setting, or on port 80 if that URL has none. If you set `url` to the address that users browse to (the email plugin uses it in links), also set the `PORT` environment variable to `8082`.
+Uptime listens on port 8080 of all IPv4 interfaces. To change this, set the `server.port` and `server.host` settings, or the `PORT` and `HOST` environment variables, which take precedence. The `url` setting doesn't change the port: it is the address that users browse to, such as the address of a reverse proxy, which the email plugin uses in links and the Google login sends users back to.
 
 To add a plugin or an npm package to the image, build your own image from it. For instance, the `SES` method of the email plugin needs the AWS SDK:
 
@@ -124,7 +124,7 @@ MongoDB only upgrades data files in place from the previous release series, so t
 
 * `email` plugin: `transport` is passed as is to nodemailer 10, whose options changed since nodemailer 0.x (for instance, `secureConnection` is now `secure`). With the `Sendmail` method, `transport` holds the sendmail options, such as `path`. The `SES` method needs the AWS SDK in the image (see [Running With Docker](#running-with-docker)), and `transport` holds the `SESv2Client` options, such as `region` and `credentials`. See the comment at the top of [`plugins/email/index.js`](plugins/email/index.js).
 * MongoDB credentials: Uptime sends `mongodb.user` and `mongodb.password` only when both are set, and URL-encodes them. If you escaped special characters in the password yourself, remove the escaping. `mongodb.connectionString` is used as is.
-* `url`: if you set it, also set the `PORT` environment variable (see [Running With Docker](#running-with-docker)).
+* `url` no longer sets the port that Uptime listens on. Set `server.port` instead (and `server.host` to listen on a single address), or the `PORT` environment variable. The default port is now 8080 instead of 8082.
 
 ### Plugin Changes
 
@@ -141,9 +141,9 @@ Custom and third-party plugins written for 3.x will probably need updating:
 Adding Checks
 -------------
 
-By default, the web UI runs on port 8082, so just browse to 
+By default, the web UI runs on port 8080, so just browse to 
 
-    http://localhost:8082/
+    http://localhost:8080/
 
 And you're ready to begin. Create your first check by entering an URL, wait for the first ping, and you'll soon see data flowing through your charts!
 
@@ -153,7 +153,11 @@ Configuring
 Uptime uses [node-config](https://github.com/lorenwest/node-config) to allow YAML configuration and environment support. Here is the default configuration, taken from `config/default.yaml`:
 
 ```yaml
-url:        'http://localhost:8082'
+url: 'http://localhost:8080' # the address that users browse to, used in the links of the emails and by the Google login
+
+server:                       # the address the webapp listens on
+  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6); overridden by the HOST environment variable
+  port:   8080                # overridden by the PORT environment variable
 
 mongodb:
   server:   localhost
@@ -164,7 +168,7 @@ mongodb:
 
 monitor:
   name:                   origin
-  apiUrl:                 'http://localhost:8082/api' # must be accessible without a proxy
+  apiUrl:                 'http://localhost:8080/api' # must be accessible without a proxy
   apiKey:                 # sent to the API as "Authorization: Bearer <apiKey>", and accepted by the basicAuth and googleAuth plugins; generated on start when empty
   pollingInterval:        10000      # ten seconds
   timeout:                5000       # five seconds
@@ -251,7 +255,7 @@ To that extent, set the `autoStartMonitor` setting to `false` for the webapp, an
       - uptime
     command: node monitor.js
     environment:
-      NODE_CONFIG: '{"monitor":{"apiUrl":"http://uptime:8082/api"}}'
+      NODE_CONFIG: '{"monitor":{"apiUrl":"http://uptime:8080/api"}}'
 ```
 
 You can also run the monitor on a different server. This second server must be able to reach the API of the webapp server: set the `monitor.apiUrl` setting accordingly.
@@ -376,7 +380,7 @@ Parameter :
 
 * `id` : (required) Id of the check
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004`
 
 #### `GET /checks/:id/pause`
 
@@ -386,7 +390,7 @@ Parameter :
 
 * `id` : (required) Id of the check
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004/pause`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004/pause`
 
 #### `PUT /check/:id/test`
 
@@ -397,7 +401,7 @@ Parameter :
 
 * `id` : (required) Id of the check
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004/test`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004/test`
 
 #### `GET /pings`
 
@@ -408,7 +412,7 @@ Parameters :
 * `?page=1` : (optional) Paginate results by 50
 * `?check=:id` : (optional) Return only the pings for a given check
 
-Ex: `http://localhost:8082/api/pings?check=527a25bdc9de6e0000000004`
+Ex: `http://localhost:8080/api/pings?check=527a25bdc9de6e0000000004`
 
 #### `GET /pings/events`
 
@@ -440,7 +444,7 @@ Parameter :
 
 * `name` : (required) name of the tag
 
-Ex: `http://localhost:8082/tags/good`
+Ex: `http://localhost:8080/tags/good`
 
 #### `PUT /checks`
 
@@ -473,7 +477,7 @@ Parameters :
 * `tags` : (optional) list of tags (comma-separated values)
 * `type` : (optional) type of check - values : `auto`|`http`|`https`|`udp`
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004`
 
 #### `DELETE /checks/:id`
 
@@ -483,7 +487,7 @@ Parameters :
 
 * `id` : (required) Id of the check
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004`
 
 ### Statistics routes
 
@@ -497,7 +501,7 @@ Parameters :
    * `period` : (required) Period - values :  `hour`|`day`|`month`|`year`
    * `timestamp` : (required) Start date (timestamp)
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004/stat/day/1383260400000`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004/stat/day/1383260400000`
 
 #### `GET /checks/:id/stats/:type`
 
@@ -510,7 +514,7 @@ Parameters :
 * `?begin=` : (required) Start date (timestamp)
 * `?end=` : (required) End date (timestamp)
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004/stats/month?begin=1383260400000&end=1385852399999`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004/stats/month?begin=1383260400000&end=1385852399999`
 
 #### `GET /tags/:name/checks/:period/:timestamp`
 
@@ -522,7 +526,7 @@ Parameters :
 * `period` : (required) Period - values :  `hour`|`day`|`month`|`year`
 * `timestamp` : (required) Start date (timestamp)
 
-Ex: `http://localhost:8082/api/tags/good/checks/month/1384816432099`
+Ex: `http://localhost:8080/api/tags/good/checks/month/1384816432099`
 
 #### `GET /tags/:name/stat/:period/:timestamp`
 
@@ -534,7 +538,7 @@ Parameters :
 * `period` : (required) Period - values :  `hour`|`day`|`month`|`year`
 * `timestamp` : (required) Start date (timestamp)
 
-Ex: `http://localhost:8082/api/tags/good/stat/month/1383260400000`
+Ex: `http://localhost:8080/api/tags/good/stat/month/1383260400000`
 
 #### `GET /tags/:name/stats/:type`
 
@@ -547,7 +551,7 @@ Parameters :
 * `?begin=` : (required) Start date (timestamp)
 * `?end=` : (required) End date (timestamp)
 
-Ex: `http://localhost:8082/api/tags/good/stats/month?begin=1383260400000&end=1385852399999`
+Ex: `http://localhost:8080/api/tags/good/stats/month?begin=1383260400000&end=1385852399999`
 
 ### Event routes
 
@@ -559,7 +563,7 @@ Parameter :
 
 * `id` : (required) Id of the check
 
-Ex: `http://localhost:8082/api/checks/527a25bdc9de6e0000000004/events`
+Ex: `http://localhost:8080/api/checks/527a25bdc9de6e0000000004/events`
 
 #### `GET /tags/:name/events`
 
@@ -571,7 +575,7 @@ Parameter :
 * `?begin=` : (optional) Start date (timestamp)
 * `?end=` : (optional) End date (timestamp)
 
-Ex: `http://localhost:8082/api/tags/good/events?begin=1383260400000&end=1385852399999`
+Ex: `http://localhost:8080/api/tags/good/events?begin=1383260400000&end=1385852399999`
 
 License
 -------

@@ -17,7 +17,7 @@ Uptime is a remote monitoring app built with Node.js, MongoDB, Express and socke
 
 ```sh
 npm install
-node app                      # webapp + analyzer + monitor (if autoStartMonitor: true), default http://localhost:8082
+node app                      # webapp + analyzer + monitor (if autoStartMonitor: true), default http://localhost:8080
 NODE_ENV=production node app
 node monitor                  # standalone poller process (set autoStartMonitor: false for the webapp)
 node models/migrations/upgrade2to3   # one-time migration from 1.x/2.x data
@@ -39,7 +39,7 @@ To get sample data for the dashboard, see `fixtures/README.md`: run `node fixtur
 
 ## Configuration
 
-The app uses [node-config](https://github.com/lorenwest/node-config) with YAML. `config/default.yaml` is the base, and `config/<NODE_ENV>.yaml` overrides it. `config/development.yaml`, `config/runtime.json` and `plugins/index.js` are gitignored local files. Values in the YAML files can use `${VAR}`, `${VAR:-default}` and `$${VAR}` (a literal). `lib/yamlEnv.js` expands them after parsing with the `yaml` package, so that it knows which values were quoted: an unquoted value is retyped as YAML (number, boolean, null), and a quoted one stays a string. `lib/config.js` registers that parser with node-config and exports the config. Require `./lib/config` instead of `config`, because the parser must be registered before node-config first loads the files. The listen port comes from `config.url` and can be overridden with the `PORT` and `HOST` env vars. `session.secret` signs the session cookie (`SameSite=Lax`); when it's empty, `app.js` generates a random one on start.
+The app uses [node-config](https://github.com/lorenwest/node-config) with YAML. `config/default.yaml` is the base, and `config/<NODE_ENV>.yaml` overrides it. `config/development.yaml`, `config/runtime.json` and `plugins/index.js` are gitignored local files. Values in the YAML files can use `${VAR}`, `${VAR:-default}` and `$${VAR}` (a literal). `lib/yamlEnv.js` expands them after parsing with the `yaml` package, so that it knows which values were quoted: an unquoted value is retyped as YAML (number, boolean, null), and a quoted one stays a string. `lib/config.js` registers that parser with node-config and exports the config. Require `./lib/config` instead of `config`, because the parser must be registered before node-config first loads the files. The webapp listens on `server.host` and `server.port` (default `0.0.0.0:8080`), which the `HOST` and `PORT` env vars override. `url` is only the public address that users browse to: the email plugin uses it in links and `googleAuth` in its redirect URI. `session.secret` signs the session cookie (`SameSite=Lax`); when it's empty, `app.js` generates a random one on start.
 
 ## Architecture
 

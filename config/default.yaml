@@ -1,4 +1,8 @@
-url: 'http://localhost:8082'
+url: 'http://localhost:8080' # the address that users browse to, used in the links of the emails and by the Google login
+
+server:                       # the address the webapp listens on
+  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6); overridden by the HOST environment variable
+  port:   8080                # overridden by the PORT environment variable
 
 mongodb:
   server:   localhost
@@ -9,7 +13,7 @@ mongodb:
 
 monitor:
   name:                   origin
-  apiUrl:                 'http://localhost:8082/api' # must be accessible without a proxy
+  apiUrl:                 'http://localhost:8080/api' # must be accessible without a proxy
   apiKey:                 # sent to the API as "Authorization: Bearer <apiKey>", and accepted by the basicAuth and googleAuth plugins; generated on start when empty
   pollingInterval:        10000      # ten seconds
   timeout:                5000       # five seconds

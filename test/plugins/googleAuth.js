@@ -361,7 +361,7 @@ describe('googleAuth plugin', function() {
     const init = function(settings) {
       const app = express();
       const io = { engine: { use: function() {} } };
-      googleAuth.initWebApp({ app: app, io: io, config: { url: 'http://localhost:8082', googleAuth: settings } });
+      googleAuth.initWebApp({ app: app, io: io, config: { url: 'http://localhost:8080', googleAuth: settings } });
     };
 
     it('should require an OAuth client', function() {

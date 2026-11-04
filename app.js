@@ -149,17 +149,11 @@ module.exports = app;
 let monitorInstance;
 
 if (require.main === module) {
-  const serverUrl = new URL(config.url);
-  let port;
-  if (config.server && config.server.port) {
-    console.error('Warning: The server port setting is deprecated, please use the url setting instead');
-    port = config.server.port;
-  } else {
-    port = serverUrl.port || 80;
-  }
-  port = process.env.PORT || port;
-  const host = process.env.HOST || serverUrl.hostname;
-  server.listen(port, function(){
+  // the address to listen on, which isn't the url that users browse to behind a reverse proxy or a port mapping
+  const listen = config.server || {};
+  const port = process.env.PORT || listen.port || 8080;
+  const host = process.env.HOST || listen.host || '0.0.0.0';
+  server.listen(port, host, function(){
     console.log("Express server listening on host %s, port %d in %s mode", host, port, app.get('env'));
   });
   server.on('error', function(e) {

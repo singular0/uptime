@@ -1,6 +1,6 @@
 # Runs Uptime from the local source with a MongoDB server:
 #   docker compose up --build
-# then browse to http://localhost:8082/
+# then browse to http://localhost:8080/
 services:
   mongo:
     image: mongo:7 # MongoDB 8 doesn't start on Linux 6.19+ kernels (SERVER-121912)
@@ -19,7 +19,7 @@ services:
       mongo:
         condition: service_healthy
     ports:
-      - '8082:8082'
+      - '8080:8080'
     environment:
       NODE_CONFIG: '{"mongodb":{"server":"mongo"}}'
 volumes:
