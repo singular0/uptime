@@ -151,8 +151,8 @@ let monitorInstance;
 if (require.main === module) {
   // the address to listen on, which isn't the url that users browse to behind a reverse proxy or a port mapping
   const listen = config.server || {};
-  const port = process.env.PORT || listen.port || 8080;
-  const host = process.env.HOST || listen.host || '0.0.0.0';
+  const port = listen.port || 8080;
+  const host = listen.host || '0.0.0.0';
   server.listen(port, host, function(){
     console.log("Express server listening on host %s, port %d in %s mode", host, port, app.get('env'));
   });

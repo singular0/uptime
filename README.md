@@ -77,7 +77,7 @@ To change the configuration (see [Configuring](#configuring)), pass the settings
 
 Mount the single file, not the whole directory, so that the image keeps `default.yaml`. Settings in `NODE_CONFIG` take precedence over the file.
 
-Uptime listens on port 8080 of all IPv4 interfaces. To change this, set the `server.port` and `server.host` settings, or the `PORT` and `HOST` environment variables, which take precedence. The `url` setting doesn't change the port: it is the address that users browse to, such as the address of a reverse proxy, which the email plugin uses in links and the Google login sends users back to.
+Uptime listens on port 8080 of all IPv4 interfaces. To change this, set the `server.port` and `server.host` settings. Uptime ignores the `PORT` and `HOST` environment variables, unless the configuration file uses them, as in `port: ${PORT:-8080}`. The `url` setting doesn't change the port: it is the address that users browse to, such as the address of a reverse proxy, which the email plugin uses in links and the Google login sends users back to.
 
 To add a plugin or an npm package to the image, build your own image from it. For instance, the `SES` method of the email plugin needs the AWS SDK:
 
@@ -124,7 +124,8 @@ MongoDB only upgrades data files in place from the previous release series, so t
 
 * `email` plugin: `transport` is passed as is to nodemailer 10, whose options changed since nodemailer 0.x (for instance, `secureConnection` is now `secure`). With the `Sendmail` method, `transport` holds the sendmail options, such as `path`. The `SES` method needs the AWS SDK in the image (see [Running With Docker](#running-with-docker)), and `transport` holds the `SESv2Client` options, such as `region` and `credentials`. See the comment at the top of [`plugins/email/index.js`](plugins/email/index.js).
 * MongoDB credentials: Uptime sends `mongodb.user` and `mongodb.password` only when both are set, and URL-encodes them. If you escaped special characters in the password yourself, remove the escaping. `mongodb.connectionString` is used as is.
-* `url` no longer sets the port that Uptime listens on. Set `server.port` instead (and `server.host` to listen on a single address), or the `PORT` environment variable. The default port is now 8080 instead of 8082.
+* `url` no longer sets the port that Uptime listens on. Set `server.port` instead (and `server.host` to listen on a single address). The default port is now 8080 instead of 8082.
+* The `PORT` environment variable no longer sets the port. Use it in the configuration file instead: `port: ${PORT:-8080}`.
 
 ### Plugin Changes
 
@@ -156,8 +157,8 @@ Uptime uses [node-config](https://github.com/lorenwest/node-config) to allow YAM
 url: 'http://localhost:8080' # the address that users browse to, used in the links of the emails and by the Google login
 
 server:                       # the address the webapp listens on
-  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6); overridden by the HOST environment variable
-  port:   8080                # overridden by the PORT environment variable
+  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6)
+  port:   8080
 
 mongodb:
   server:   localhost

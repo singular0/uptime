@@ -1,8 +1,8 @@
 url: 'http://localhost:8080' # the address that users browse to, used in the links of the emails and by the Google login
 
 server:                       # the address the webapp listens on
-  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6); overridden by the HOST environment variable
-  port:   8080                # overridden by the PORT environment variable
+  host:   '0.0.0.0'           # all IPv4 interfaces ('::' adds IPv6)
+  port:   8080
 
 mongodb:
   server:   localhost
