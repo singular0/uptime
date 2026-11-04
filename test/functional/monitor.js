@@ -263,4 +263,53 @@ describe('monitor', function() {
 
   });
 
+  describe('isHealthy()', function() {
+
+    // a monitor that started longer ago than three polling intervals and a timeout (1000ms each)
+    const startedLongAgo = function(apiUrl) {
+      const healthMonitor = createMonitor(apiUrl, { pollingInterval: 1000 });
+      healthMonitor.startedAt = Date.now() - 5000;
+      return healthMonitor;
+    };
+
+    // run fn without the "Monitor started" and "Monitor stopped" messages
+    const quietly = function(fn) {
+      const consoleLog = console.log;
+      console.log = function() {};
+      try {
+        fn();
+      } finally {
+        console.log = consoleLog;
+      }
+    };
+
+    it('should be healthy from the start until it stops', function() {
+      const healthMonitor = createMonitor(apiServer.url + '/api');
+      healthMonitor.pollChecksNeedingPoll = function() {}; // no API calls left running after the test
+      healthMonitor.isHealthy().should.be.false();
+      quietly(function() { healthMonitor.start(); });
+      healthMonitor.isHealthy().should.be.true();
+      quietly(function() { healthMonitor.stop(); });
+      healthMonitor.isHealthy().should.be.false();
+    });
+
+    it('should be healthy when it fetched the checks needing a poll lately', async function() {
+      await Check.create({ name: 'error', type: 'http', url: target.url + '/error' });
+      const healthMonitor = startedLongAgo(apiServer.url + '/api');
+      healthMonitor.isHealthy().should.be.false();
+      // a target being down doesn't matter
+      (await loggedErrors(function() { return healthMonitor.pollChecksNeedingPoll(); })).should.eql([]);
+      healthMonitor.isHealthy().should.be.true();
+    });
+
+    it('should not be healthy when it fails to fetch the checks needing a poll', async function() {
+      const closed = await listen(function() {});
+      await close(closed);
+      const healthMonitor = startedLongAgo(closed.url + '/api');
+      (await loggedErrors(function() { return healthMonitor.pollChecksNeedingPoll(); })).length.should.eql(1);
+      healthMonitor.isHealthy().should.be.false();
+    });
+
+  });
+
 });

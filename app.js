@@ -34,6 +34,24 @@ const app = module.exports = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// health check for Docker and load balancers. Declared before the session and the plugins,
+// so that it needs no credentials and sets no cookie. It doesn't query MongoDB: the queries wait
+// while the connection is down, and would take longer than the health check timeout.
+app.get('/health', function(req, res) {
+  const mongodb = mongoose.STATES[mongoose.connection.readyState];
+  let healthy = mongodb === 'connected';
+  const health = { status: 'ok', mongodb: mongodb };
+  // the monitor of this process, when autoStartMonitor is set
+  const monitor = app.get('monitor');
+  if (monitor) {
+    health.monitor = monitor.isHealthy() ? 'ok' : 'stale';
+    healthy = healthy && health.monitor === 'ok';
+  }
+  if (!healthy) health.status = 'error';
+  res.set('Cache-Control', 'no-store');
+  res.status(healthy ? 200 : 503).json(health);
+});
+
 // the following middlewares are only necessary for the mounted 'dashboard' app,
 // but express needs it on the parent app (?) and it therefore pollutes the api
 app.use(express.json());
@@ -167,4 +185,5 @@ if (require.main === module) {
 // monitor
 if (config.autoStartMonitor) {
   monitorInstance = require('./monitor');
+  app.set('monitor', monitorInstance); // for GET /health
 }

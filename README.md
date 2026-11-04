@@ -90,6 +90,35 @@ USER node
 
 A plugin without dependencies can instead be mounted as a directory under `/app/plugins/`, and listed in the `plugins` setting.
 
+The image checks the health of Uptime every 30 seconds, with a request to `http://127.0.0.1:8080/health` in the container, and `docker compose ps` shows the result. `GET /health` needs no credentials, even with the `basicAuth` or `googleAuth` plugin, and responds with:
+
+```json
+{"status":"ok","mongodb":"connected","monitor":"ok"}
+```
+
+It responds with a 503 status and `"status":"error"` while the connection to MongoDB is down, or when the monitor that runs in the webapp process (see `autoStartMonitor`) hasn't fetched the checks from the API for three polling intervals. Checks whose targets are down don't change it. Docker doesn't restart an unhealthy container by itself, but other services can wait for Uptime to be healthy, and orchestrators such as Docker Swarm replace unhealthy containers.
+
+To change how often the check runs, or its port when you set `server.port`, override it in `compose.yaml`. The settings that you leave out keep the values of the image: a 5 second timeout, 3 retries, and a 30 second start period during which the check runs every 2 seconds. This example also starts Uptime once MongoDB accepts connections:
+
+```yaml
+services:
+  mongo:
+    # ...
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  uptime:
+    # ...
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8080/health'] # the port of the server.port setting
+      interval: 1m
+```
+
 Upgrading From a 3.x Install
 ----------------------------
 
@@ -253,16 +282,19 @@ To that extent, set the `autoStartMonitor` setting to `false` for the webapp, an
     image: ghcr.io/singular0/uptime:4
     restart: unless-stopped
     depends_on:
-      - uptime
+      uptime:
+        condition: service_healthy
     command: node monitor.js
     environment:
       NODE_CONFIG: '{"monitor":{"apiUrl":"http://uptime:8080/api"}}'
+    healthcheck:
+      disable: true # the health check of the image requests the webapp, which doesn't run in this container
 ```
 
 You can also run the monitor on a different server. This second server must be able to reach the API of the webapp server: set the `monitor.apiUrl` setting accordingly.
 
 ```sh
-$ docker run -d \
+$ docker run -d --no-healthcheck \
     -e NODE_CONFIG='{"monitor":{"apiUrl":"https://uptime.example.com/api"}}' \
     ghcr.io/singular0/uptime:4 node monitor.js
 ```
