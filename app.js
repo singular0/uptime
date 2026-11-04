@@ -5,6 +5,7 @@
 const http       = require('http');
 const path       = require('path');
 const fs         = require('fs');
+const crypto     = require('crypto');
 const express    = require('express');
 const config     = require('config');
 const { Server } = require('socket.io');
@@ -12,6 +13,7 @@ const methodOverride = require('method-override');
 const cookieParser   = require('cookie-parser');
 const cookieSession  = require('cookie-session');
 const errorHandler   = require('errorhandler');
+const onlyForHandshake = require('./lib/onlyForHandshake');
 const analyzer   = require('./lib/analyzer');
 const CheckEvent = require('./models/checkEvent');
 const Ping       = require('./models/ping');
@@ -45,12 +47,22 @@ app.use(methodOverride(function(req) {
     return method;
   }
 }));
-app.use(cookieParser('Z5V45V6B5U56B7J5N67J5VTH345GC4G5V4'));
-app.use(cookieSession({
-  name:   'uptime',
-  secret: 'FZ5HEE5YHD3E566756234C45BY4DSFZ4',
-  maxAge: 60 * 60 * 1000
-}));
+// signs the cookies. A generated secret changes on every start, which ends the sessions
+let secret = config.session && config.session.secret;
+if (!secret) {
+  secret = crypto.randomBytes(32).toString('base64url');
+  console.log('session.secret is not set: using a random secret, sessions end when Uptime restarts');
+}
+app.use(cookieParser(secret));
+const session = cookieSession({
+  name:     'uptime',
+  secret:   secret,
+  maxAge:   60 * 60 * 1000,
+  sameSite: 'lax' // not sent with cross-site POST requests (CSRF)
+});
+app.use(session);
+// socket.io answers its own requests: give its handshake the session too, for the authentication plugins
+io.engine.use(onlyForHandshake(session));
 app.set('pollerCollection', new PollerCollection());
 
 // load plugins (may add their own routes and middlewares)

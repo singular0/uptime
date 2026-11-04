@@ -21,12 +21,16 @@ analyzer:
 
 autoStartMonitor: true
 
+session:
+  secret:                 # signs the session cookie; when empty, a random secret is generated on each start, which logs users out
+
 plugins:
   - ./plugins/console
   - ./plugins/patternMatcher
   - ./plugins/httpOptions
   # - ./plugins/email
   # - ./plugins/basicAuth
+  # - ./plugins/googleAuth
 
 email:
   method:      SMTP  # possible methods are SMTP, SES, or Sendmail
@@ -48,6 +52,15 @@ email:
 basicAuth:
   username:    admin
   password:    password
+
+googleAuth:          # see plugins/googleAuth/index.js
+  clientId:          # OAuth client of a Google Cloud project, whose redirect URI is the `url` setting + /auth/google/callback
+  clientSecret:
+  allowedDomains: [] # Google Workspace domains whose users may log in, e.g. [example.com]
+  allowedEmails:  [] # Google accounts that may log in, e.g. [jane.doe@gmail.com]
+  apiKey:            # for the monitor and API clients, sent as "Authorization: Bearer <apiKey>"; generated on start when empty
+  sessionMaxAge: 86400000 # one day after the last request
+
 verbose: true # only used in dev
 
 webPageTest:

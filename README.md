@@ -21,7 +21,7 @@ Features
 * Web interface built with [Bootstrap 5](https://getbootstrap.com/)
 * Complete REST API for integration with third-party monitoring services
 * Monitor from several locations by running monitors in different datacenters
-* Protect the dashboard and the API with HTTP Basic authentication
+* Protect the dashboard and the API with HTTP Basic authentication, or with a Google login limited to Google Workspace domains and email addresses
 * Plugin system to extend and customize Uptime
 * Docker image for linux/amd64 and linux/arm64
 
@@ -176,11 +176,16 @@ analyzer:
 
 autoStartMonitor: true
 
+session:
+  secret:                 # signs the session cookie; when empty, a random secret is generated on each start, which logs users out
+
 plugins:
   - ./plugins/console
   - ./plugins/patternMatcher
   - ./plugins/httpOptions
   # - ./plugins/email
+  # - ./plugins/basicAuth
+  # - ./plugins/googleAuth
 ```
 
 To modify this configuration, override just the settings you need in a `production.yaml` file, or in the `NODE_CONFIG` environment variable (see [Running With Docker](#running-with-docker)). For instance, to set the address that users browse to:
@@ -188,6 +193,8 @@ To modify this configuration, override just the settings you need in a `producti
 ```yaml
 url: 'https://uptime.example.com'
 ```
+
+The session cookie is signed with the `session.secret` setting. When it's empty, Uptime generates a random secret on each start: users of the `googleAuth` plugin then log in again after a restart, and several webapp processes behind a load balancer don't accept each other's sessions. Set it to a long random string, e.g. the output of `openssl rand -base64 32`.
 
 Note that Uptime works great behind a proxy - it uses the `http_proxy` and `https_proxy` environment variables transparently.
 
@@ -249,13 +256,14 @@ You can even run several monitor servers in several datacenters to get average r
 Using Plugins
 -------------
 
-Plugins can add more notification types, more poller types, new routes to the webapp, etc. Uptime currently bundles three plugins:
+Plugins can add more notification types, more poller types, new routes to the webapp, etc. Uptime bundles the following plugins:
 
  * [`console`](https://github.com/fzaninotto/uptime/blob/master/plugins/console/index.js): log pings and events in the console in real time
  * [`email`](https://github.com/fzaninotto/uptime/blob/master/plugins/email/index.js): notify events (up, down pause) by email
  * [`patternMatcher`](https://github.com/fzaninotto/uptime/blob/master/plugins/patternMatcher/index.js): allow HTTP & HTTPS pollers to test the response body against a pattern
  * [`httpOptions`](https://github.com/fzaninotto/uptime/blob/master/plugins/httpOptions/index.js): add custom HTTP options and headers to HTTP and HTTPS checks (e.g. to allow self-signed certificate on HTTPS, custom headers, custom HTTP methods, ...)
  * [`basicAuth`](https://github.com/fzaninotto/uptime/blob/master/plugins/basicAuth/index.js): add HTTP Basic Access Authentication to the dashboard and API applications
+ * [`googleAuth`](plugins/googleAuth/index.js): log in to the dashboard with a Google account, from a list of Google Workspace domains or email addresses, and give the monitor and API clients an API key
 
 To enable plugins, just add a line to the `plugins:` section of the configuration file.
 Three of the bundled plugins are already enabled by default:
@@ -268,6 +276,7 @@ plugins:
   - ./plugins/httpOptions
   # - ./plugins/email
   # - ./plugins/basicAuth
+  # - ./plugins/googleAuth
 ```
 
 You can override these settings in your environment configuration, for instance:
@@ -281,6 +290,7 @@ plugins:
   - ./plugins/httpOptions
   - ./plugins/email
   # - ./plugins/basicAuth
+  # - ./plugins/googleAuth
 ```
 
 Writing Plugins

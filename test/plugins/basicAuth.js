@@ -1,5 +1,6 @@
 const should = require('should');
 const express = require('express');
+const { Server } = require('socket.io');
 const Monitor = require('../../lib/monitor');
 const basicAuth = require('../../plugins/basicAuth');
 const { listen, close } = require('../helpers');
@@ -10,23 +11,25 @@ describe('basicAuth plugin', function() {
 
   describe('webapp', function() {
 
-    let server;
+    let server, io;
 
     before(async function() {
       const app = express();
-      basicAuth.initWebApp({ app: app, config: config });
+      server = await listen(app);
+      io = new Server(server);
+      basicAuth.initWebApp({ app: app, io: io, config: config });
       app.emit('beforeFirstRoute', app);
       app.get('/', function(req, res) { res.end('hello ' + req.user); });
-      server = await listen(app);
     });
 
     after(function() {
+      io.engine.close();
       return close(server);
     });
 
-    const get = function(credentials) {
+    const get = function(credentials, path) {
       const headers = credentials ? { Authorization: 'Basic ' + Buffer.from(credentials).toString('base64') } : {};
-      return fetch(server.url + '/', { headers: headers });
+      return fetch(server.url + (path || '/'), { headers: headers });
     };
 
     it('should ask for credentials', async function() {
@@ -44,6 +47,15 @@ describe('basicAuth plugin', function() {
       const res = await get('admin:s3cr3t');
       res.status.should.eql(200);
       (await res.text()).should.eql('hello admin');
+    });
+
+    it('should protect the socket.io connection', async function() {
+      const handshake = '/socket.io/?EIO=4&transport=polling';
+      (await get(undefined, handshake)).status.should.eql(401);
+      (await get('admin:wrong', handshake)).status.should.eql(401);
+      const res = await get('admin:s3cr3t', handshake);
+      res.status.should.eql(200);
+      (await res.text()).should.startWith('0{"sid":');
     });
 
   });

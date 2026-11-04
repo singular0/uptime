@@ -39,13 +39,13 @@ To get sample data for the dashboard, see `fixtures/README.md`: run `node fixtur
 
 ## Configuration
 
-The app uses [node-config](https://github.com/lorenwest/node-config) with YAML. `config/default.yaml` is the base, and `config/<NODE_ENV>.yaml` overrides it. `config/development.yaml`, `config/runtime.json` and `plugins/index.js` are gitignored local files. The listen port comes from `config.url` and can be overridden with the `PORT` and `HOST` env vars.
+The app uses [node-config](https://github.com/lorenwest/node-config) with YAML. `config/default.yaml` is the base, and `config/<NODE_ENV>.yaml` overrides it. `config/development.yaml`, `config/runtime.json` and `plugins/index.js` are gitignored local files. The listen port comes from `config.url` and can be overridden with the `PORT` and `HOST` env vars. `session.secret` signs the session cookie (`SameSite=Lax`); when it's empty, `app.js` generates a random one on start.
 
 ## Architecture
 
 The system runs as three cooperating pieces. They can share one process (`node app`) or run separately.
 
-1. **Webapp** (`app.js`): the parent Express app. It mounts `app/api` at `/api` (JSON REST) and `app/dashboard` at `/dashboard` (EJS views via `express-partials`, plus static assets). It also wires socket.io: `CheckEvent` inserts are broadcast to all browsers. `Ping` inserts go only to the `check:<id>` room, which a page joins with the `set check` message.
+1. **Webapp** (`app.js`): the parent Express app. It mounts `app/api` at `/api` (JSON REST) and `app/dashboard` at `/dashboard` (EJS views via `express-partials`, plus static assets). It also wires socket.io: `CheckEvent` inserts are broadcast to all browsers. `Ping` inserts go only to the `check:<id>` room, which a page joins with the `set check` message. socket.io answers its own requests before Express, so Express middlewares don't apply to them: `app.js` runs the cookie session on the socket.io handshake with `io.engine.use(onlyForHandshake(session))` (`lib/onlyForHandshake.js`), and the authentication plugins add their check the same way.
 2. **Monitor** (`monitor.js` → `lib/monitor.js`): never touches MongoDB or the models. It talks to the webapp only over HTTP at `config.monitor.apiUrl`:
    - `GET /checks/needingPoll` to find work
    - `PUT /check/:id/test` to claim a check
@@ -70,8 +70,10 @@ The system runs as three cooperating pieces. They can share one process (`node a
 
 Plugins are listed by path in `config.plugins` and loaded by `require()`. `app.js` calls `initWebApp({app, api, dashboard, io, config, mongoose})` and `monitor.js` calls `initMonitor({monitor, config})`. The extension points are emitter events:
 
-- Parent `app`: `beforeFirstRoute`, `beforeApiRoutes`, `beforeDashboardRoutes`, `afterLastRoute` (`basicAuth` uses `beforeFirstRoute`).
+- Parent `app`: `beforeFirstRoute`, `beforeApiRoutes`, `beforeDashboardRoutes`, `afterLastRoute`. The authentication plugins (`basicAuth`, `googleAuth`) add their middleware on `beforeFirstRoute`, and on the socket.io handshake through `io.engine.use()`. A plugin that sets `res.locals.user = { name, email, logoutUrl }` gets an account menu in the dashboard navbar.
 - `dashboard` app: `populateFromDirtyCheck(checkDoc, dirtyCheck, type)` to validate and store per-check settings via `check.setPollerParam()`, and `checkEdit(type, check, partialsArray)` to inject form fields into the check edit view.
-- `monitor`: `pollerCreated(poller, check, details)` to mutate the request before polling (`httpOptions`), and `pollerPolled(check, res, details)`, where throwing marks the ping as failed (`patternMatcher`).
+- `monitor`: `pollerCreated(poller, check, details)` to mutate the request before polling (`httpOptions`), and `pollerPolled(check, res, details)`, where throwing marks the ping as failed (`patternMatcher`). Plugins authenticate the monitor's API calls with `monitor.addApiHttpOption()`, which merges `headers` instead of replacing them.
+
+`googleAuth` talks to Google's OAuth endpoints with `fetch` and no extra dependency. Its `authorizationUrl` and `tokenUrl` settings exist so that `test/plugins/googleAuth.js` can use a local fake Google. The monitor can't log in with Google, so it sends `Authorization: Bearer <googleAuth.apiKey>`; when the key is empty, a random one is generated, which only a monitor in the webapp process knows.
 
 Gotcha: the API routes (`app/api/routes/check.js`) emit `populateFromDirtyCheck` on the **api** app, but the bundled plugins only listen on `dashboard`. Plugin-specific poller params are therefore not processed for checks created or updated through the REST API.

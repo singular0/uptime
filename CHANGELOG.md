@@ -12,9 +12,13 @@ Uptime Changelog
 * Enable plugins by listing them in the `plugins` setting, and let them extend both the webapp and the monitor through `initWebApp()` and `initMonitor()` (warning: changes the plugin signature)
 * Add plugin extension points: plugins can register custom poller types in the poller collection, add per-check settings to the check form (`checkEdit`, `populateFromDirtyCheck`) stored in `check.pollerParams`, alter requests before polling (`pollerCreated`), inspect responses (`pollerPolled`), and store additional details in `ping.details`
 * Add the `basicAuth` plugin, to restrict access to the dashboard and the API with HTTP Basic authentication
+* Add the `googleAuth` plugin, to log in to the dashboard with a Google account from a list of Google Workspace domains or email addresses, while the monitor and API clients use an API key
+* The `basicAuth` and `googleAuth` plugins also protect the socket.io connection that sends live events and pings to the dashboard
 * Add the `httpOptions` plugin, to set custom headers and HTTP options on a check
 * Add the `patternMatcher` plugin, to check the response body against a pattern
 * Store sessions in a cookie instead of the in-memory store, which is not meant for production
+* Sign the session cookie with the new `session.secret` setting, or with a random secret generated on start, instead of a secret published in the source code. The cookie is no longer sent with cross-site POST requests (`SameSite=Lax`)
+* Merge the `headers` that plugins add to the monitor API calls with `monitor.addApiHttpOption()`, instead of replacing the headers of the call (such as the `Content-Type` of the pings)
 * HTTP and HTTPS pollers follow all 3xx redirects, 303 included
 * Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed
 * Fix relative redirects in HTTP and HTTPS pollers (now resolved against the current URL, port and protocol included)

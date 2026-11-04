@@ -15,7 +15,8 @@
  * Usage
  * -----
  * Restart the application, and both the API and the Dashboard applications 
- * become protected. The monitor correctly authenticates its own calls to the API.
+ * become protected, as well as the socket.io connection that sends live updates
+ * to the dashboard. The monitor correctly authenticates its own calls to the API.
  * 
  * Default credentials are admin:password.
  *
@@ -31,6 +32,7 @@
  */
 var crypto    = require('crypto');
 var basicAuth = require('basic-auth');
+var onlyForHandshake = require('../../lib/onlyForHandshake');
 
 // constant-time string comparison
 var safeEqual = function(a, b) {
@@ -41,18 +43,21 @@ var safeEqual = function(a, b) {
 
 exports.initWebApp = function(options) {
   var config = options.config.basicAuth;
+  // only uses the node.js request and response API, since socket.io requests don't go through express
+  var basicAuthMiddleware = function(req, res, next) {
+    var credentials = basicAuth.parse(req.headers.authorization || '');
+    if (credentials && safeEqual(credentials.name, config.username) && safeEqual(credentials.pass, config.password)) {
+      req.user = req.remoteUser = credentials.name;
+      return next();
+    }
+    res.statusCode = 401;
+    res.setHeader('WWW-Authenticate', 'Basic realm="Authorization Required"');
+    res.end('Unauthorized');
+  };
   options.app.on('beforeFirstRoute', function(app, dashboardApp) {
-    app.use(function basicAuthMiddleware(req, res, next) {
-      var credentials = basicAuth.parse(req.headers.authorization || '');
-      if (credentials && safeEqual(credentials.name, config.username) && safeEqual(credentials.pass, config.password)) {
-        req.user = req.remoteUser = credentials.name;
-        return next();
-      }
-      res.statusCode = 401;
-      res.setHeader('WWW-Authenticate', 'Basic realm="Authorization Required"');
-      res.end('Unauthorized');
-    });
+    app.use(basicAuthMiddleware);
   });
+  options.io.engine.use(onlyForHandshake(basicAuthMiddleware));
 };
 
 exports.initMonitor = function(options) {
