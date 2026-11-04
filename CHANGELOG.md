@@ -27,6 +27,9 @@ Uptime Changelog
 * Fix plugins receiving an undefined socket.io instance in `initWebApp()`
 * Fix hourly, daily, monthly and yearly stats ignoring an outage still in progress at the end of the period once the check is back up, and counting the up time between two outages as downtime
 * Fix "up" events always having a zero downtime, so that notifications never said how long the check was down
+* Fix the downtime and availability of tags, which counted the whole period as up or down depending on the state at its end, and only used the tested time of the first check of the tag
+* Fix the monthly and yearly availability, which divided the downtime by the whole month or year instead of the time the check was tested, and overstated the availability of a month in progress
+* Fix the end date of a tag stat returned by the API, and remove the yearly stats of a deleted tag
 * Restyle the dashboard with Bootstrap 5.3: a full-width navbar with up, paused and down counts, a light, dark or automatic color mode, a summary card for each stat, a breadcrumb and period buttons tinted by availability to navigate dates, cards for the graphs and lists, a grouped check form, toasts for messages and live events, and a confirmation dialog before deleting a check
 * Fix the graphs and stats of the check and tag pages staying empty when the stats load before the page is ready
 * Fix the uptime bar of a check that is down or paused, which showed a stray red mark at the start of the bar

@@ -12,7 +12,7 @@ const DOWN = 0;
 describe('intervalBuilder', function() {
 
   // fixtures: timestamps are relative to now, in milliseconds
-  let now, flapping, neverTested, stillDown, paused;
+  let now, flapping, neverTested, stillDown, paused, alwaysUp, lateStarter, pausedToo;
 
   const createPings = async function(check, pings) {
     for (const [offset, isUp] of pings) {
@@ -53,6 +53,21 @@ describe('intervalBuilder', function() {
       { check: paused._id, timestamp: new Date(now - 3000), message: 'up' },
       { check: paused._id, timestamp: new Date(now - 2000), message: 'paused' },
       { check: paused._id, timestamp: new Date(now - 1000), message: 'up' }
+    ]);
+
+    alwaysUp = await new Check({ name: 'always up' }).save();
+    await createPings(alwaysUp, [[-3000, true], [3000, true]]);
+
+    // events: up at 1000; last tested at 3000
+    lateStarter = await new Check({ name: 'late starter' }).save();
+    await createPings(lateStarter, [[1000, true], [3000, true]]);
+
+    // paused from -2500 to -1500, which overlaps the pause of the 'paused' check
+    pausedToo = await new Check({ name: 'paused too', firstTested: new Date(now - 3000), lastTested: new Date(now), isUp: true }).save();
+    await CheckEvent.insertMany([
+      { check: pausedToo._id, timestamp: new Date(now - 3000), message: 'up' },
+      { check: pausedToo._id, timestamp: new Date(now - 2500), message: 'paused' },
+      { check: pausedToo._id, timestamp: new Date(now - 1500), message: 'up' }
     ]);
   });
 
@@ -151,10 +166,41 @@ describe('intervalBuilder', function() {
     });
 
     it('should consider several targets down as soon as one of them is down', async function() {
-      const alwaysUp = await new Check({ name: 'always up' }).save();
-      await createPings(alwaysUp, [[-3000, true], [3000, true]]);
       const { intervals } = await build([flapping, alwaysUp], -4000, 3000);
       relative(intervals).should.eql([[-3000, -1000, DOWN], [2000, 3000, DOWN]]);
+    });
+
+    it('should count the outages of several targets as downtime, even if they are all up at the end of the period', async function() {
+      const { downtime, duration } = await build([flapping, alwaysUp], -4000, 3000);
+      downtime.should.eql(3000);
+      duration.should.eql(6000);
+    });
+
+    it('should not count the whole period as downtime when one of several targets is down at the end', async function() {
+      const { intervals, downtime, duration } = await build([flapping, alwaysUp], -4000, 2500);
+      relative(intervals).should.eql([[-3000, -1000, DOWN], [2000, 2500, DOWN]]);
+      downtime.should.eql(2500);
+      duration.should.eql(5500);
+    });
+
+    it('should use the tested time of all the targets, from the first test of any of them to the latest', async function() {
+      const { intervals, downtime, duration } = await build([stillDown, lateStarter], -4000, 4000);
+      relative(intervals).should.eql([[-2500, -2000, DOWN], [-1000, 3000, DOWN]]);
+      downtime.should.eql(4500);
+      duration.should.eql(6000);
+    });
+
+    it('should return pause periods when all the targets are paused, and not count them as tested time', async function() {
+      const { intervals, downtime, duration } = await build([paused, pausedToo], -3000, 0);
+      relative(intervals).should.eql([[-2000, -1500, PAUSED]]);
+      downtime.should.eql(0);
+      duration.should.eql(2500);
+    });
+
+    it('should return no interval and no tested time when none of the targets was ever tested', async function() {
+      const neverTestedToo = await new Check({ name: 'never tested too' }).save();
+      const result = await build([neverTested, neverTestedToo], 0, 1000);
+      result.should.eql({ intervals: [], downtime: 0, duration: 0 });
     });
 
   });

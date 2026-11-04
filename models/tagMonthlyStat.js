@@ -11,6 +11,7 @@ var TagMonthlyStat = new Schema({
   responsiveness : Number,
   responseTime   : Number,
   downtime       : Number,
+  testedTime     : Number, // time tested and not paused, in milliseconds
   outages        : Array,
 });
 TagMonthlyStat.index({ name: 1, timestamp: -1 }, { unique: true });

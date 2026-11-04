@@ -37,7 +37,8 @@ Tag.methods.removeStats = function() {
   return Promise.all([
     TagHourlyStat.deleteMany({ name: this.name }),
     TagDailyStat.deleteMany({ name: this.name }),
-    TagMonthlyStat.deleteMany({ name: this.name })
+    TagMonthlyStat.deleteMany({ name: this.name }),
+    TagYearlyStat.deleteMany({ name: this.name })
   ]);
 };
 
@@ -89,7 +90,7 @@ const singleStatsProvider = {
 Tag.methods.getSingleStatsForPeriod = async function(period, date) {
   const model = singleStatsProvider[period];
   const begin = moment(date).clone().startOf(period).toDate();
-  const end   = moment(date).clone().startOf(period).toDate();
+  const end   = moment(date).clone().endOf(period).toDate();
   const query = { name: this.name, timestamp: { $gte: begin, $lte: end } };
   const stat = await this.db.model(model).findOne(query);
   if (!stat) return;

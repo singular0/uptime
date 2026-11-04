@@ -10,6 +10,7 @@ var TagDailyStat = new Schema({
   responsiveness : Number,
   responseTime   : Number,
   downtime       : Number,
+  testedTime     : Number, // time tested and not paused, in milliseconds
   outages        : Array,
 });
 TagDailyStat.index({ name: 1, timestamp: -1 }, { unique: true });
