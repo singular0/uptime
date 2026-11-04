@@ -26,6 +26,7 @@ Uptime Changelog
 * Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed
 * Fix relative redirects in HTTP and HTTPS pollers (now resolved against the current URL, port and protocol included)
 * Fix the monitor crashing on a check with an unknown poller type or an invalid URL
+* Fix the monitor crashing with an `https://` `monitor.apiUrl`, or when the API responds with something other than JSON. The monitor now calls the API with `fetch()`, with the `monitor.timeout`, logs the errors of the API calls, and no longer polls a check that it failed to claim (warning: the options that plugins add with `monitor.addApiHttpOption()` are now `fetch()` options, apart from `auth` and `headers`)
 * Fix the creation of checks without a URL
 * Fix plugins receiving an undefined socket.io instance in `initWebApp()`
 * Fix hourly, daily, monthly and yearly stats ignoring an outage still in progress at the end of the period once the check is back up, and counting the up time between two outages as downtime

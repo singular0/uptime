@@ -31,7 +31,7 @@ npx mocha test/unit/check.js                        # single file
 npx mocha test/unit/check.js -g "should update object"   # single test
 ```
 
-Suites live in `test/functional/` (REST API and the monitor end to end, through the full app), `test/lib/` (models and libraries, against MongoDB), `test/plugins/` and `test/unit/` (no database). Shared helpers are in `test/helpers.js`: `listen(handler)` starts a server on a random port, `request()` sends JSON with `fetch`, `clear(...models)` empties collections, and `eventually()` retries assertions on side effects that the code doesn't await. Tests never use fixed ports and never reach the network. `config/test.yaml` disables the monitor and the console plugin, and `test/setup.js` unsets `http_proxy`/`https_proxy`.
+Suites live in `test/functional/` (REST API and the monitor end to end, through the full app), `test/lib/` (models and libraries, against MongoDB), `test/plugins/` and `test/unit/` (no database). Shared helpers are in `test/helpers.js`: `listen(handler, tlsOptions)` starts an HTTP server (HTTPS with `tlsOptions`) on a random port, `request()` sends JSON with `fetch`, `clear(...models)` empties collections, and `eventually()` retries assertions on side effects that the code doesn't await. Tests never use fixed ports and never reach the network. `test/functional/tls/` holds a self-signed certificate for `127.0.0.1`, which the HTTPS monitor test trusts with `tls.setDefaultCACertificates()` and restores afterwards. `config/test.yaml` disables the monitor and the console plugin, and `test/setup.js` unsets `http_proxy`/`https_proxy`.
 
 CI: `.github/workflows/test.yml` runs `npm test` against a `mongo:7` service on every branch push and pull request (MongoDB 8.0+ refuses to start on the runners' Linux 6.19+ kernel, see SERVER-121912). `.github/workflows/docker.yml` builds and pushes the image on `v*.*.*` tags, and calls `test.yml` first so the image is only published when the tests pass. Once the image is pushed, its `release` job creates the GitHub release for the tag. The notes come from the matching `CHANGELOG.md` section (`vX.Y.Z`, or `vX.Y` for a `.0` patch), and GitHub-generated notes are used when no section matches. A tag with a prerelease suffix such as `-beta.1` makes a prerelease.
 
@@ -46,9 +46,9 @@ The app uses [node-config](https://github.com/lorenwest/node-config) with YAML. 
 The system runs as three cooperating pieces. They can share one process (`node app`) or run separately.
 
 1. **Webapp** (`app.js`): the parent Express app. It mounts `app/api` at `/api` (JSON REST) and `app/dashboard` at `/dashboard` (EJS views via `express-partials`, plus static assets). It also wires socket.io: `CheckEvent` inserts are broadcast to all browsers. `Ping` inserts go only to the `check:<id>` room, which a page joins with the `set check` message. socket.io answers its own requests before Express, so Express middlewares don't apply to them: `app.js` runs the cookie session on the socket.io handshake with `io.engine.use(onlyForHandshake(session))` (`lib/onlyForHandshake.js`), and the authentication plugins add their check the same way.
-2. **Monitor** (`monitor.js` → `lib/monitor.js`): never touches MongoDB or the models. It talks to the webapp only over HTTP at `config.monitor.apiUrl`:
+2. **Monitor** (`monitor.js` → `lib/monitor.js`): never touches MongoDB or the models. It talks to the webapp only over HTTP or HTTPS at `config.monitor.apiUrl`, with `fetch()` (`callApi()`). API errors, timeouts (`monitor.timeout`), redirects and responses that aren't JSON reject; `pollChecksNeedingPoll()` logs them and never rejects:
    - `GET /checks/needingPoll` to find work
-   - `PUT /check/:id/test` to claim a check
+   - `PUT /check/:id/test` to claim a check (a check that it fails to claim isn't polled)
    - `POST /pings` to report results
 
    This split lets it run in another process, or in several datacenters with distinct `monitor.name` values.
@@ -64,7 +64,7 @@ The system runs as three cooperating pieces. They can share one process (`node a
 
 **Dashboard UI** uses Bootstrap 5.3 (CSS and the JS bundle) and Bootstrap Icons, vendored in `app/dashboard/public/vendor/`. Colors come from Bootstrap's theme variables (`var(--bs-...)`, `text-*-emphasis`, `*-bg-subtle`), never hard-coded values, so that the light and dark color modes (`javascripts/colorMode.js`) both work. `javascripts/ui.js` gives a Bootstrap tooltip to any element with `data-bs-toggle="tooltip"` (also when it's added later) and provides `showToast()`; the layout shows the `info` flash messages as toasts. The layout highlights the navbar item from `navSection`, and routes pass a `title`. The check and tag pages are built from the `_dateNavigation`, `_statCards` and section partials, and `DateInterval` calls a `refresh-stats` or `refresh-stat` listener added after the stats arrived right away.
 
-`lib/flash.js` replaces connect-flash with the same `req.flash()` API. `lib/proxy.js` monkey-patches `http.request`/`get` and `https.request`/`get` when `http_proxy`/`https_proxy` is set.
+`lib/flash.js` replaces connect-flash with the same `req.flash()` API. `lib/proxy.js` monkey-patches `http.request`/`get` and `https.request`/`get` when `http_proxy`/`https_proxy` is set. It only affects the pollers: the monitor's `fetch()` calls to the API don't go through the proxy.
 
 ## Plugins
 
@@ -72,9 +72,9 @@ Plugins are listed by path in `config.plugins` and loaded by `require()`. `app.j
 
 - Parent `app`: `beforeFirstRoute`, `beforeApiRoutes`, `beforeDashboardRoutes`, `afterLastRoute`. The authentication plugins (`basicAuth`, `googleAuth`) add their middleware on `beforeFirstRoute`, and on the socket.io handshake through `io.engine.use()`. A plugin that sets `res.locals.user = { name, email, logoutUrl }` gets an account menu in the dashboard navbar.
 - `dashboard` app: `populateFromDirtyCheck(checkDoc, dirtyCheck, type)` to validate and store per-check settings via `check.setPollerParam()`, and `checkEdit(type, check, partialsArray)` to inject form fields into the check edit view.
-- `monitor`: `pollerCreated(poller, check, details)` to mutate the request before polling (`httpOptions`), and `pollerPolled(check, res, details)`, where throwing marks the ping as failed (`patternMatcher`). Plugins add options to the monitor's API calls with `monitor.addApiHttpOption()`, which merges `headers` instead of replacing them.
+- `monitor`: `pollerCreated(poller, check, details)` to mutate the request before polling (`httpOptions`), and `pollerPolled(check, res, details)`, where throwing marks the ping as failed (`patternMatcher`). Plugins add `fetch()` options to the monitor's API calls with `monitor.addApiHttpOption()`, which merges `headers` instead of replacing them, and turns `auth` (`user:password`) into a Basic `Authorization` header.
 
-**API key** (`lib/apiKey.js`): the monitor sends `monitor.apiKey` as `Authorization: Bearer <apiKey>`, and the authentication plugins let in the requests that carry it with `apiKey.verifier(config)`. When the setting is empty, the first verifier generates a random key, which `monitor.js` passes to a monitor in the same process (`apiKey.forMonitor()`). A separate monitor then has no key: `basicAuth` sends its credentials instead, and `googleAuth` warns. Plugins read the key of the monitor they get from `monitor.config.apiKey`. Node.js ignores the `auth` http option when the `Authorization` header is set.
+**API key** (`lib/apiKey.js`): the monitor sends `monitor.apiKey` as `Authorization: Bearer <apiKey>`, and the authentication plugins let in the requests that carry it with `apiKey.verifier(config)`. When the setting is empty, the first verifier generates a random key, which `monitor.js` passes to a monitor in the same process (`apiKey.forMonitor()`). A separate monitor then has no key: `basicAuth` sends its credentials instead, and `googleAuth` warns. Plugins read the key of the monitor they get from `monitor.config.apiKey`. Like the http module, the monitor ignores the `auth` option when the `Authorization` header is set.
 
 `googleAuth` talks to Google's OAuth endpoints with `fetch` and no extra dependency. Its `authorizationUrl` and `tokenUrl` settings exist so that `test/plugins/googleAuth.js` can use a local fake Google. The monitor can't log in with Google, so it relies on the API key.
 

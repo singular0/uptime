@@ -47,8 +47,8 @@ describe('apiKey', function() {
       const monitor = Monitor.createMonitor({ name: 'test', apiUrl: 'http://127.0.0.1/api', apiKey: 'api-key' });
       monitor.addApiHttpOption('headers', { 'X-Plugin': 'other' });
       // e.g. the call that sends a ping
-      const options = { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
-      monitor.applyApiHttpOptions(options);
+      const options = monitor.apiFetchOptions({ method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      options.method.should.eql('POST');
       options.headers.should.eql({
         'Content-Type':  'application/x-www-form-urlencoded',
         'Authorization': 'Bearer api-key',
@@ -58,9 +58,7 @@ describe('apiKey', function() {
 
     it('should send no Authorization header without an API key', function() {
       const monitor = Monitor.createMonitor({ name: 'test', apiUrl: 'http://127.0.0.1/api' });
-      const options = {};
-      monitor.applyApiHttpOptions(options);
-      options.should.eql({});
+      monitor.apiFetchOptions({}).should.eql({ headers: {} });
     });
 
   });

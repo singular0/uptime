@@ -2,6 +2,7 @@
  * Shared test helpers. Not a test file: mocha only loads the files in the subdirectories of test/.
  */
 const http = require('http');
+const https = require('https');
 
 /**
  * Remove all the documents of the given models.
@@ -11,17 +12,18 @@ exports.clear = function(...models) {
 };
 
 /**
- * Start an HTTP server on a random local port.
+ * Start an HTTP server on a random local port, or an HTTPS server when given TLS options.
  *
  * @param {Function} handler an express app or a request listener
+ * @param {Object} tlsOptions e.g. { key, cert }, for an HTTPS server
  * @return {Promise<http.Server>} the server, with a `url` property (e.g. 'http://127.0.0.1:12345')
  */
-exports.listen = function(handler) {
-  const server = http.createServer(handler);
+exports.listen = function(handler, tlsOptions) {
+  const server = tlsOptions ? https.createServer(tlsOptions, handler) : http.createServer(handler);
   return new Promise(function(resolve, reject) {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', function() {
-      server.url = 'http://127.0.0.1:' + server.address().port;
+      server.url = (tlsOptions ? 'https' : 'http') + '://127.0.0.1:' + server.address().port;
       resolve(server);
     });
   });

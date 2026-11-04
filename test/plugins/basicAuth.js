@@ -75,17 +75,13 @@ describe('basicAuth plugin', function() {
     it('should authenticate the monitor calls to the API with the credentials', function() {
       const monitor = Monitor.createMonitor({ name: 'test', apiUrl: 'http://127.0.0.1/api' });
       basicAuth.initMonitor({ monitor: monitor, config: config });
-      const options = {};
-      monitor.applyApiHttpOptions(options);
-      options.should.eql({ auth: 'admin:s3cr3t' });
+      monitor.apiFetchOptions({}).should.eql({ headers: { Authorization: 'Basic ' + Buffer.from('admin:s3cr3t').toString('base64') } });
     });
 
     it('should let a monitor with an API key send it instead of the credentials', function() {
       const monitor = Monitor.createMonitor({ name: 'test', apiUrl: 'http://127.0.0.1/api', apiKey: 'api-key' });
       basicAuth.initMonitor({ monitor: monitor, config: config });
-      const options = {};
-      monitor.applyApiHttpOptions(options);
-      options.should.eql({ headers: { Authorization: 'Bearer api-key' } });
+      monitor.apiFetchOptions({}).should.eql({ headers: { Authorization: 'Bearer api-key' } });
     });
 
   });
