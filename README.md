@@ -195,6 +195,19 @@ To modify this configuration, override just the settings you need in a `producti
 url: 'https://uptime.example.com'
 ```
 
+The values in the YAML files can refer to environment variables, which keeps secrets out of the files:
+
+```yaml
+mongodb:
+  connectionString: ${MONGODB_URL}
+session:
+  secret: '${SESSION_SECRET}'
+monitor:
+  pollingInterval: ${POLLING_INTERVAL:-10000}
+```
+
+`${VAR}` fails on start when `VAR` isn't set, `${VAR:-default}` uses `default` when `VAR` isn't set or is empty, and `$${VAR}` is the literal text `${VAR}`. An unquoted value gets the type it would have if it was written in the file, such as a number or a boolean, and an empty one is null. A quoted value is always a string, so quote the secrets that could look like a number.
+
 The session cookie is signed with the `session.secret` setting. When it's empty, Uptime generates a random secret on each start: users of the `googleAuth` plugin then log in again after a restart, and several webapp processes behind a load balancer don't accept each other's sessions. Set it to a long random string, e.g. the output of `openssl rand -base64 32`.
 
 Note that Uptime works great behind a proxy - it uses the `http_proxy` and `https_proxy` environment variables transparently.

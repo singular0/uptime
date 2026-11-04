@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const config   = require('config');
+const config   = require('./lib/config');
 const semver   = require('semver');
 
 const MIN_MONGODB_VERSION = '4.4.0'; // oldest server supported by the MongoDB Node.js driver

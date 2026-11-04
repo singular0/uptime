@@ -1,0 +1,3 @@
+mongodb:
+  database: ${UPTIME_TEST_DB}
+  port: ${UPTIME_TEST_PORT:-27017}

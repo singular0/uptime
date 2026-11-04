@@ -19,6 +19,7 @@ Uptime Changelog
 * Add the `patternMatcher` plugin, to check the response body against a pattern
 * Store sessions in a cookie instead of the in-memory store, which is not meant for production
 * Sign the session cookie with the new `session.secret` setting, or with a random secret generated on start, instead of a secret published in the source code. The cookie is no longer sent with cross-site POST requests (`SameSite=Lax`)
+* Expand environment variables in the values of the YAML configuration files, with `${VAR}` or `${VAR:-default}`. The files are now parsed with the `yaml` package instead of js-yaml
 * Merge the `headers` that plugins add to the monitor API calls with `monitor.addApiHttpOption()`, instead of replacing the headers of the call (such as the `Content-Type` of the pings)
 * HTTP and HTTPS pollers follow all 3xx redirects, 303 included
 * Fix proxy support (`http_proxy`/`https_proxy`), which modern Node.js versions silently bypassed

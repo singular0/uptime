@@ -1,5 +1,5 @@
 var fs      = require('fs');
-var config  = require('config');
+var config  = require('./lib/config');
 var Monitor = require('./lib/monitor');
 var apiKey  = require('./lib/apiKey');
 
