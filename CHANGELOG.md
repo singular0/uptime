@@ -12,7 +12,8 @@ Uptime Changelog
 * Enable plugins by listing them in the `plugins` setting, and let them extend both the webapp and the monitor through `initWebApp()` and `initMonitor()` (warning: changes the plugin signature)
 * Add plugin extension points: plugins can register custom poller types in the poller collection, add per-check settings to the check form (`checkEdit`, `populateFromDirtyCheck`) stored in `check.pollerParams`, alter requests before polling (`pollerCreated`), inspect responses (`pollerPolled`), and store additional details in `ping.details`
 * Add the `basicAuth` plugin, to restrict access to the dashboard and the API with HTTP Basic authentication
-* Add the `googleAuth` plugin, to log in to the dashboard with a Google account from a list of Google Workspace domains or email addresses, while the monitor and API clients use an API key
+* Add the `googleAuth` plugin, to log in to the dashboard with a Google account from a list of Google Workspace domains or email addresses, while the monitor and API clients use the API key
+* Add the `monitor.apiKey` setting, which the monitor sends to the API as `Authorization: Bearer <apiKey>`. The `basicAuth` and `googleAuth` plugins let in the requests that carry it, from the monitor or from other API clients. When it's empty, these plugins generate a random key on each start, which only a monitor running in the webapp process knows
 * The `basicAuth` and `googleAuth` plugins also protect the socket.io connection that sends live events and pings to the dashboard
 * Add the `httpOptions` plugin, to set custom headers and HTTP options on a check
 * Add the `patternMatcher` plugin, to check the response body against a pattern

@@ -58,12 +58,12 @@ describe('googleAuth plugin', function() {
     io.engine.use(onlyForHandshake(session));
     googleAuth.initWebApp({ app: app, io: io, config: {
       url: server.url,
+      monitor: { apiKey: 'api-key' },
       googleAuth: Object.assign({
         clientId:         'client-id',
         clientSecret:     'client-secret',
         allowedDomains:   ['Example.com'],
         allowedEmails:    ['Jane.Doe@gmail.com'],
-        apiKey:           'api-key',
         authorizationUrl: google.url + '/auth',
         tokenUrl:         google.url + '/token'
       }, settings)
@@ -377,18 +377,23 @@ describe('googleAuth plugin', function() {
 
   describe('monitor', function() {
 
-    it('should authenticate the monitor calls to the API with the API key', function() {
-      const monitor = Monitor.createMonitor({ name: 'test', apiUrl: 'http://127.0.0.1/api' });
-      monitor.addApiHttpOption('headers', { 'X-Plugin': 'other' });
-      googleAuth.initMonitor({ monitor: monitor, config: { googleAuth: { apiKey: 'api-key' } } });
-      // e.g. the call that sends a ping
-      const options = { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
-      monitor.applyApiHttpOptions(options);
-      options.headers.should.eql({
-        'Content-Type':  'application/x-www-form-urlencoded',
-        'X-Plugin':      'other',
-        'Authorization': 'Bearer api-key'
-      });
+    // the warnings of initMonitor()
+    const warnings = function(monitorConfig) {
+      const monitor = Monitor.createMonitor(Object.assign({ name: 'test', apiUrl: 'http://127.0.0.1/api' }, monitorConfig));
+      const messages = [];
+      const consoleError = console.error;
+      console.error = function(message) { messages.push(message); };
+      try {
+        googleAuth.initMonitor({ monitor: monitor, config: {} });
+      } finally {
+        console.error = consoleError;
+      }
+      return messages;
+    };
+
+    it('should warn when the monitor has no API key', function() {
+      warnings({}).should.match([/monitor\.apiKey is not set/]);
+      warnings({ apiKey: 'api-key' }).should.eql([]);
     });
 
   });

@@ -20,6 +20,10 @@
  * 
  * Default credentials are admin:password.
  *
+ * API clients may also send the API key of the `monitor.apiKey` setting instead
+ * of the credentials, as "Authorization: Bearer <apiKey>". The monitor sends
+ * the API key when it has one, and the credentials otherwise (see lib/apiKey.js).
+ *
  * Configuration
  * -------------
  * Set the username and password in the configuration file, under the
@@ -33,6 +37,7 @@
 var crypto    = require('crypto');
 var basicAuth = require('basic-auth');
 var onlyForHandshake = require('../../lib/onlyForHandshake');
+var apiKey    = require('../../lib/apiKey');
 
 // constant-time string comparison
 var safeEqual = function(a, b) {
@@ -43,8 +48,10 @@ var safeEqual = function(a, b) {
 
 exports.initWebApp = function(options) {
   var config = options.config.basicAuth;
+  var hasApiKey = apiKey.verifier(options.config);
   // only uses the node.js request and response API, since socket.io requests don't go through express
   var basicAuthMiddleware = function(req, res, next) {
+    if (hasApiKey(req)) return next();
     var credentials = basicAuth.parse(req.headers.authorization || '');
     if (credentials && safeEqual(credentials.name, config.username) && safeEqual(credentials.pass, config.password)) {
       req.user = req.remoteUser = credentials.name;
@@ -61,6 +68,8 @@ exports.initWebApp = function(options) {
 };
 
 exports.initMonitor = function(options) {
+  // a monitor with an API key sends it in the Authorization header, which takes precedence over `auth`
+  if (options.monitor.config.apiKey) return;
   var config = options.config.basicAuth;
-  options.monitor.addApiHttpOption('auth',  config.username + ':' + config.password);
+  options.monitor.addApiHttpOption('auth', config.username + ':' + config.password);
 };

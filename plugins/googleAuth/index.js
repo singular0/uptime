@@ -24,12 +24,13 @@
  *   url: 'https://uptime.example.com' # the address that users browse to
  *   session:
  *     secret: <long random string>    # otherwise, users log in again after each restart
+ *   monitor:
+ *     apiKey: <long random string>    # for the monitor and API clients, see below
  *   googleAuth:
  *     clientId:     <client ID>.apps.googleusercontent.com
  *     clientSecret: <client secret>
  *     allowedDomains: [example.com]          # Google Workspace domains
  *     allowedEmails:  [jane.doe@gmail.com]   # Google accounts
- *     apiKey: <long random string>
  *     sessionMaxAge: 86400000                # in milliseconds after the last request (default: one day)
  *
  * A user may log in when their account matches either list:
@@ -46,13 +47,14 @@
  * `sessionMaxAge` after the last request. The socket.io connection that sends live
  * updates to the dashboard is protected too.
  *
- * The monitor and other API clients authenticate with the API key instead:
+ * The monitor and other API clients authenticate with the API key of the `monitor.apiKey`
+ * setting instead (see lib/apiKey.js):
  *
  *   curl -H 'Authorization: Bearer <apiKey>' https://uptime.example.com/api/checks
  *
- * When `apiKey` is empty, a random key is generated on each start. Only a monitor that runs
+ * When `monitor.apiKey` is empty, a random key is generated on each start. Only a monitor that runs
  * in the webapp process (`autoStartMonitor: true`) knows it. A monitor started with
- * `node monitor` needs the `apiKey` of the webapp.
+ * `node monitor` needs the `monitor.apiKey` of the webapp.
  *
  * Requests to Google don't use the `https_proxy` environment variable, unless
  * Node.js runs with NODE_USE_ENV_PROXY=1.
@@ -61,6 +63,7 @@ const crypto = require('crypto');
 const path   = require('path');
 const ejs    = require('ejs');
 const onlyForHandshake = require('../../lib/onlyForHandshake');
+const apiKey = require('../../lib/apiKey');
 
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -68,10 +71,6 @@ const ONE_MINUTE = 60 * 1000;
 // dashboard files used by the login pages, served without login
 const PUBLIC_PATH = /^\/dashboard\/(vendor|javascripts|stylesheets)\/|^\/(dashboard\/)?favicon(_red)?\.ico$/;
 const PAGE_TEMPLATE = path.join(__dirname, 'views', 'page.ejs');
-
-// shared by the webapp and a monitor started in the same process
-const generatedApiKey = crypto.randomBytes(32).toString('base64url');
-let webAppStarted = false;
 
 const randomString = function() {
   return crypto.randomBytes(32).toString('base64url');
@@ -129,21 +128,15 @@ exports.initWebApp = function(options) {
   if (!allowedDomains.length && !allowedEmails.length) {
     throw new Error('googleAuth plugin: set googleAuth.allowedDomains or googleAuth.allowedEmails, otherwise nobody can log in');
   }
-  const apiKey = settings.apiKey || generatedApiKey;
   const sessionMaxAge = Number(settings.sessionMaxAge) || ONE_DAY;
   const authorizationUrl = settings.authorizationUrl || 'https://accounts.google.com/o/oauth2/v2/auth'; // overridden by the tests
   const tokenUrl = settings.tokenUrl || 'https://oauth2.googleapis.com/token';
   const redirectUri = new URL('/auth/google/callback', config.url).href;
-  webAppStarted = true;
+  const hasApiKey = apiKey.verifier(config);
 
   const isAllowed = function(account) {
     return (typeof account.domain === 'string' && allowedDomains.includes(account.domain.toLowerCase())) ||
       (account.emailVerified === true && allowedEmails.includes(account.email.toLowerCase()));
-  };
-
-  const hasApiKey = function(req) {
-    const match = /^Bearer\s+(\S+)$/i.exec(req.headers.authorization || '');
-    return match !== null && safeEqual(match[1], apiKey);
   };
 
   // The logged in user, if the session hasn't expired. The cookie expiry is only a hint
@@ -275,10 +268,9 @@ exports.initWebApp = function(options) {
   options.io.engine.use(onlyForHandshake(socketGuard));
 };
 
+// the monitor sends its API key itself (see lib/apiKey.js), since it can't log in with Google
 exports.initMonitor = function(options) {
-  const settings = options.config.googleAuth || {};
-  if (!settings.apiKey && !webAppStarted) {
-    console.error('Warning: googleAuth.apiKey is not set, so the monitor can only call the API of a webapp running in the same process');
+  if (!options.monitor.config.apiKey) {
+    console.error('Warning: monitor.apiKey is not set, so the monitor can only call the API of a webapp running in the same process');
   }
-  options.monitor.addApiHttpOption('headers', { Authorization: 'Bearer ' + (settings.apiKey || generatedApiKey) });
 };

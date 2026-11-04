@@ -165,9 +165,10 @@ mongodb:
 monitor:
   name:                   origin
   apiUrl:                 'http://localhost:8082/api' # must be accessible without a proxy
+  apiKey:                 # sent to the API as "Authorization: Bearer <apiKey>", and accepted by the basicAuth and googleAuth plugins; generated on start when empty
   pollingInterval:        10000      # ten seconds
   timeout:                5000       # five seconds
-  userAgent:              NodeUptime/2.0 (https://github.com/fzaninotto/uptime)
+  userAgent:              NodeUptime/4.0 (https://github.com/singular0/uptime)
 
 analyzer:
   updateInterval:         60000      # one minute
@@ -248,6 +249,8 @@ $ docker run -d \
     ghcr.io/singular0/uptime:4 node monitor.js
 ```
 
+When the `basicAuth` or `googleAuth` plugin protects the webapp, set the same `monitor.apiKey` on the webapp and on the monitors, e.g. the output of `openssl rand -base64 32`. The monitors send it to the API as an `Authorization: Bearer <apiKey>` header. When it's empty, the webapp generates a random key on each start, which only a monitor running in the webapp process knows: a separate monitor then can't call the API of a webapp with the `googleAuth` plugin, and sends the credentials of the `basicAuth` plugin instead.
+
 Monitoring From Various Locations
 ---------------------------------
 
@@ -263,7 +266,7 @@ Plugins can add more notification types, more poller types, new routes to the we
  * [`patternMatcher`](https://github.com/fzaninotto/uptime/blob/master/plugins/patternMatcher/index.js): allow HTTP & HTTPS pollers to test the response body against a pattern
  * [`httpOptions`](https://github.com/fzaninotto/uptime/blob/master/plugins/httpOptions/index.js): add custom HTTP options and headers to HTTP and HTTPS checks (e.g. to allow self-signed certificate on HTTPS, custom headers, custom HTTP methods, ...)
  * [`basicAuth`](https://github.com/fzaninotto/uptime/blob/master/plugins/basicAuth/index.js): add HTTP Basic Access Authentication to the dashboard and API applications
- * [`googleAuth`](plugins/googleAuth/index.js): log in to the dashboard with a Google account, from a list of Google Workspace domains or email addresses, and give the monitor and API clients an API key
+ * [`googleAuth`](plugins/googleAuth/index.js): log in to the dashboard with a Google account, from a list of Google Workspace domains or email addresses, while the monitor and API clients use the API key of the `monitor.apiKey` setting
 
 To enable plugins, just add a line to the `plugins:` section of the configuration file.
 Three of the bundled plugins are already enabled by default:
@@ -323,7 +326,7 @@ API
 
 All API requests should be prefixed with `api`.
 The API response always uses the `application/json` mimetype.
-API requests do not require authentication.
+API requests do not require authentication, unless the `basicAuth` or `googleAuth` plugin is enabled. API clients then send the `monitor.apiKey` setting as an `Authorization: Bearer <apiKey>` header (the `basicAuth` plugin also accepts its username and password).
 
 Example of a valid API request:
 

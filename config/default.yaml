@@ -10,6 +10,7 @@ mongodb:
 monitor:
   name:                   origin
   apiUrl:                 'http://localhost:8082/api' # must be accessible without a proxy
+  apiKey:                 # sent to the API as "Authorization: Bearer <apiKey>", and accepted by the basicAuth and googleAuth plugins; generated on start when empty
   pollingInterval:        10000      # ten seconds
   timeout:                5000       # five seconds
   userAgent:              NodeUptime/4.0 (https://github.com/singular0/uptime)
@@ -58,7 +59,6 @@ googleAuth:          # see plugins/googleAuth/index.js
   clientSecret:
   allowedDomains: [] # Google Workspace domains whose users may log in, e.g. [example.com]
   allowedEmails:  [] # Google accounts that may log in, e.g. [jane.doe@gmail.com]
-  apiKey:            # for the monitor and API clients, sent as "Authorization: Bearer <apiKey>"; generated on start when empty
   sessionMaxAge: 86400000 # one day after the last request
 
 verbose: true # only used in dev
